@@ -1,0 +1,7 @@
+*.exe
+*.zip
+*-results.txt
+*-preview.png
+live-check.json
+bin/
+obj/
