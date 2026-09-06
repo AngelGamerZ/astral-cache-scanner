@@ -106,8 +106,21 @@ public partial class ScannerForm : Form {
     bool updateBusy;
     async void CheckUpdates() {
         if(updateBusy)return;updateBusy=true;updateStatus.Text="GitHub wird geprüft …";
-        try {string message=await System.Threading.Tasks.Task.Run(()=>ReleaseInfo.Check());if(!IsDisposed){updateStatus.Text=message;Write(message);}}
-        catch(Exception ex){if(!IsDisposed){updateStatus.Text="Update-Prüfung fehlgeschlagen";Write("Update-Prüfung: "+ex.Message);}}
+        try {
+            var progress=new Progress<string>(message=>{if(!IsDisposed){updateStatus.Text=message;Write(message);}});
+            var plan=await System.Threading.Tasks.Task.Run(()=>AutomaticUpdater.Prepare(message=>((IProgress<string>)progress).Report(message)));
+            if(IsDisposed || plan==null)return;
+            updateStatus.Text="Update geprüft. Scanner wird gespeichert und neu gestartet …";Write(updateStatus.Text);
+            timer.Stop();lootTimer.Stop();
+            try {
+                SyncLocations(true);
+                if(cacheMemory!=null && !cacheMemory.Flush(DateTimeOffset.UtcNow,true))throw new IOException("Kisten konnten nicht gespeichert werden: "+cacheMemory.SaveError);
+                if(locationDatabase!=null && !locationDatabase.Flush(true))throw new IOException("Fundorte konnten nicht gespeichert werden: "+locationDatabase.SaveError);
+                await System.Threading.Tasks.Task.Run(()=>AutomaticUpdater.Launch(plan));
+                if(!IsDisposed)Close();
+            }catch{if(!IsDisposed){timer.Start();lootTimer.Start();}throw;}
+        }
+        catch(Exception ex){if(!IsDisposed){updateStatus.Text="Automatisches Update nicht möglich – bisherige Version bleibt verfügbar.";Write("Update: "+ex.Message);}}
         finally {updateBusy=false;}
     }
     void ExportDebug() {using(var d=new SaveFileDialog {Filter="Debug-Protokoll (*.txt)|*.txt",FileName="AstralScanner-Debug-"+DateTime.Now.ToString("yyyyMMdd-HHmmss")+".txt"})if(d.ShowDialog()==DialogResult.OK){debugJournal.Export(d.FileName);Write("Debug-Protokoll exportiert.");}}
@@ -148,7 +161,7 @@ public partial class ScannerForm : Form {
         try {cacheMemory=new CacheMemory(customSettingsFile==null?CacheMemory.DefaultFile:Path.Combine(Path.GetDirectoryName(Path.GetFullPath(customSettingsFile)),"finds.json"));cacheMemory.CompletionChanged += r => Write(DebugJournal.CompletionMessage(r));RenderSaved();}catch(Exception ex){memoryStatus.Text="Funddatei nicht lesbar: "+ex.Message;Write(memoryStatus.Text);}
         try {locationDatabase=new LocationDatabase(customSettingsFile==null?LocationDatabase.DefaultFile:Path.Combine(Path.GetDirectoryName(Path.GetFullPath(customSettingsFile)),"locations.json"));SyncLocations(true);}catch(Exception ex){databaseStatus.Text="Datenbank nicht verfügbar: "+ex.Message;Write(databaseStatus.Text);}
         overlay.Diagnostic += message => Write(message);
-        timer.Tick += (s,e) => Poll(); timer.Start(); Shown += (s,e) => { hotkeyRegistered=customSettingsFile==null && RegisterHotKey(Handle,LootHotkey,0x4003,0x4c);if(customSettingsFile==null && !hotkeyRegistered)Write("Strg+Alt+L ist nicht verfügbar; bitte die Fundliste zum Markieren verwenden.");LoadClient();if(customSettingsFile==null)CheckUpdates();RefreshSummary();if(!clientApproved && promptForPath)BeginInvoke(new Action(ChooseClient)); };
+        timer.Tick += (s,e) => Poll(); timer.Start(); Shown += (s,e) => { hotkeyRegistered=customSettingsFile==null && RegisterHotKey(Handle,LootHotkey,0x4003,0x4c);if(customSettingsFile==null && !hotkeyRegistered)Write("Strg+Alt+L ist nicht verfügbar; bitte die Fundliste zum Markieren verwenden.");LoadClient();if(customSettingsFile==null && !AutomaticUpdater.SkipStartup)CheckUpdates();if(AutomaticUpdater.SkipStartup)Write("Letztes Update wurde abgebrochen. Details: "+AutomaticUpdater.LogFile);RefreshSummary();if(!clientApproved && promptForPath)BeginInvoke(new Action(ChooseClient)); };
         lootTimer.Tick+=(s,e)=>PollLoot();lootTimer.Start();
         FormClosed += (s,e) => { if(hotkeyRegistered)UnregisterHotKey(Handle,LootHotkey);timer.Dispose();lootTimer.Dispose();SyncLocations(true);if(cacheMemory!=null)cacheMemory.Flush(DateTimeOffset.UtcNow,true);overlay.Dispose(); if(liveReader!=null)liveReader.Dispose(); };
     }
@@ -361,6 +374,10 @@ public static class Program {
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool SetProcessDPIAware();
     [STAThread] public static int Main(string[] args) {
         SetProcessDPIAware();
+        if(args.Length==2 && args[0]=="--apply-update")return AutomaticUpdater.Apply(args[1]);
+        if(args.Length==2 && args[0]=="--updater-test")return UpdaterTests.Run(args[1]);
+        if(args.Length==2 && args[0]=="--updater-parent")return UpdaterTests.Parent(args[1]);
+        AutomaticUpdater.SkipStartup=args.Contains("--skip-auto-update");
         if (args.Contains("--self-test")) return Tests.Run();
         if (args.Contains("--overlay-test")) return OverlayTests.Run();
         if (args.Length==3 && args[0]=="--setup-test") return SetupTests.Run(args[1],args[2]);

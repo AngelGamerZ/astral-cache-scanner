@@ -2,9 +2,9 @@
 
 Astral Scanner ist eine portable Windows-App für Project Astral / WoW 3.3.5a. Sie erkennt geladene Objekte namens **Astral Cache**, merkt sich ihre Fundorte und zeigt mit einem Overlay Richtung und Entfernung zur nächsten offenen Kiste an. Der Scanner arbeitet lesend; er bewegt den Charakter nicht und führt keine Klicks oder Loot-Aktionen aus.
 
-**Aktuelle Version: 1.2.1** · Windows · .NET Framework 4.x · ZIP ohne Installation
+**Aktuelle Version: 1.3.0** · Windows · .NET Framework 4.5 oder neuer · ZIP ohne Installation
 
-[Windows-Version 1.2.1 herunterladen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/download/v1.2.1/AstralScanner-v1.2.1.zip) · [Neuestes Release & Änderungen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/latest) · [Online-Anleitung](https://angelgamerz.github.io/astral-cache-scanner/)
+[Windows-Version 1.3.0 herunterladen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/download/v1.3.0/AstralScanner-v1.3.0.zip) · [Neuestes Release & Änderungen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/latest) · [Online-Anleitung](https://angelgamerz.github.io/astral-cache-scanner/)
 
 ## Schnellstart
 
@@ -19,7 +19,7 @@ Der Scanner kann minimiert weiterlaufen. **Stoppen** beendet den Scan und blende
 
 ## Voraussetzungen und Erkennung
 
-- Windows mit .NET Framework 4.x und dem unterstützten Project-Astral-Client auf Basis von WoW 3.3.5a, Build 12340.
+- Windows mit .NET Framework 4.5 oder neuer und dem unterstützten Project-Astral-Client auf Basis von WoW 3.3.5a, Build 12340.
 - Der Scanner prüft die konkrete Wow.exe. Andere 3.3.5a-Clients sind dadurch nicht automatisch kompatibel. Nach einem Client-Update kann eine erneute Anpassung des Scanner-Profils nötig sein.
 - Das Overlay benötigt den Fenstermodus oder maximierten Fenstermodus. Exklusives Vollbild wird nicht unterstützt.
 - Erkannte Kisten müssen vom Spielclient geladen sein. Der Scanner durchsucht nicht die gesamte Welt nach noch unbekannten Spawns.
@@ -106,14 +106,18 @@ Für eine vollständige Sicherung den Scanner schließen und den gesamten Ordner
 
 ## Updates installieren
 
-Beim Programmstart und über **Einstellungen → Auf Updates prüfen** wird das neueste GitHub-Release geprüft. Dafür ist eine Verbindung zu GitHub nötig. Die App lädt oder installiert Updates nicht automatisch.
+Beim Programmstart und über **Einstellungen → Auf Updates prüfen** wird das neueste stabile GitHub-Release geprüft. Ab **Version 1.3.0** lädt und installiert der Scanner neuere Versionen automatisch. Dafür sind eine Verbindung zu GitHub und Schreibrechte im Programmordner nötig.
 
-1. Über **Downloads öffnen** oder das neueste Release die aktuelle ZIP herunterladen.
-2. Den Scanner vollständig schließen.
-3. ZIP entpacken und die bisherigen Programmdateien ersetzen oder einen neuen Programmordner verwenden.
-4. **AstralScanner.exe** starten und den Scan bei Bedarf manuell einschalten.
+1. Der Scanner lädt das passende ZIP-Paket und prüft Größe, SHA-256-Prüfsumme und Programmversion.
+2. Persönliche Daten werden gespeichert, anschließend wird der Scanner regulär geschlossen.
+3. Ein separater Update-Helfer ersetzt **AstralScanner.exe** und die mitgelieferte **README.md** direkt im vorhandenen Programmordner. Ein ZIP-Unterordner **AstralScanner** wird dabei aufgelöst; es entsteht kein zusätzlicher Unterordner.
+4. Die neue Version startet automatisch. Den **Scan starten**-Knopf musst du anschließend selbst drücken.
 
-Die gespeicherten Daten liegen weiterhin im Benutzerordner. Bei fehlgeschlagener Updateprüfung kann die vorhandene Version weiterverwendet und der Download direkt über GitHub geöffnet werden.
+Die persönlichen Daten unter **%LOCALAPPDATA%\AstralScanner** bleiben erhalten. Die bisherigen Programmdateien werden im Programmordner unter **.astral-update-backup-…** gesichert. Bei einem Fehler beim Ersetzen werden bereits ausgetauschte Dateien zurückgesetzt. Das Updateprotokoll liegt unter **Logs\updater.log** im persönlichen Datenordner.
+
+Bei Netzwerkproblemen, fehlerhaften Paketen oder fehlenden Schreibrechten bleibt die bisherige Version verfügbar. Über **Downloads öffnen** ist weiterhin ein manueller Download möglich. Für eine manuelle Installation den Scanner schließen und die Dateien aus der ZIP direkt in den bestehenden Programmordner kopieren.
+
+**Einmaliger Umstieg:** Versionen bis einschließlich 1.2.1 besitzen noch keinen automatischen Installer. Nutzer dieser Versionen müssen 1.3.0 einmal manuell herunterladen und ersetzen. Danach erfolgen weitere Updates automatisch.
 
 ## Debug-Log und Hilfe bei Problemen
 
