@@ -87,6 +87,8 @@ public sealed class LiveReader : IDisposable {
     }
     public Snapshot Scan() {
         var clock=Stopwatch.StartNew();
+        string region=null,subregion=null;
+        try {RequireBytes(0x5155a3,"a18007bd00");RequireBytes(0x5155d3,"a18407bd00");uint r=U32(0xbd0780),sub=U32(0xbd0784);if(r!=0)region=Name(r);if(sub!=0 && Read(sub,1)[0]!=0)subregion=Name(sub);if(U32(0xbd0780)!=r || U32(0xbd0784)!=sub){region=null;subregion=null;}}catch(InvalidDataException){}catch(Win32Exception){}
         uint connection=U32(0xc79ce0),manager=U32(connection+0x2ed0),first=U32(manager+0xac),ptr=first;
         ulong local=U64(manager+0xc0);
         if(local==0)throw new InvalidOperationException("Nicht in der Spielwelt: bitte einloggen.");
@@ -121,13 +123,13 @@ public sealed class LiveReader : IDisposable {
                     uint entry=U32(desc+12);
                     PointData position=null;try { position=ObjectPosition(ptr,space); } catch(Win32Exception) {} catch(InvalidDataException) {}
                     if(U64(ptr+0x30)!=guid || U32(ptr+8)!=desc || U32(ptr+0x1a4)!=info || U32(ptr+0x14)!=5)throw new InvalidDataException("Objekt während des Lesens ausgetauscht.");
-                    objects.Add(new ObjectData { id=guid.ToString("X16"),entry=entry,name=name,space=space,units="yards",x=position==null?null:position.x,y=position==null?null:position.y,z=position==null?null:position.z });
+                    objects.Add(new ObjectData { region=region,subregion=subregion,id=guid.ToString("X16"),entry=entry,name=name,space=space,units="yards",x=position==null?null:position.x,y=position==null?null:position.y,z=position==null?null:position.z });
                 } catch(Win32Exception) { unreadable++; } catch(InvalidDataException) { unreadable++; } catch(DecoderFallbackException) { unreadable++; }
             }
             ptr=next;
         }
         if(!foundPlayer || U32(0xc79ce0)!=connection || U32(connection+0x2ed0)!=manager || U64(manager+0xc0)!=local || U32(manager+0xac)!=first || U32(manager+0xcc)!=map || U32(0xbd088c)!=apiMap)throw new InvalidDataException("Spielwelt während des Lesens verändert. Nächster Scan folgt.");
-        return new Snapshot {schema=1,observedAt=DateTimeOffset.UtcNow.ToString("o"),source="Wow.exe PID "+pid,live=true,player=player,facing=facing,objects=objects.ToArray(),totalObjects=seen.Count,gameObjects=gameobjects,unreadable=unreadable,onTransport=onTransport,scanMilliseconds=clock.ElapsedMilliseconds,context=context,mapId=mapId,rememberNavigation=rememberNavigation};
+        return new Snapshot {region=region,subregion=subregion,schema=1,observedAt=DateTimeOffset.UtcNow.ToString("o"),source="Wow.exe PID "+pid,live=true,player=player,facing=facing,objects=objects.ToArray(),totalObjects=seen.Count,gameObjects=gameobjects,unreadable=unreadable,onTransport=onTransport,scanMilliseconds=clock.ElapsedMilliseconds,context=context,mapId=mapId,rememberNavigation=rememberNavigation};
     }
     public LootObservation ReadLoot() {
         // GetNumLootItems checks this GUID, 18 slot fields (stride 0x20), then money.

@@ -60,6 +60,7 @@ public sealed class CacheMemory {
             }
             if((now-DateTimeOffset.Parse(r.lastSeen)).TotalSeconds>=1) {r.lastSeen=now.ToString("o");dirty=true;}
             // Preserve known coordinates if this one scan cannot read them.
+            if(o.region!=null && (r.location.region!=o.region || r.location.subregion!=o.subregion)){r.location.region=o.region;r.location.subregion=o.subregion;dirty=true;}
             if(o.x.HasValue && o.y.HasValue && (r.location.x!=o.x || r.location.y!=o.y || r.location.z!=o.z || r.location.space!=o.space)) {r.location=Copy(o);dirty=true;}
         }
         if(s.unreadable==0)foreach(var r in records.Values.Where(r=>r.context==s.context && r.looted && !r.absentAfterLoot && !present.Contains(r.Key))) {
@@ -96,7 +97,7 @@ public sealed class CacheMemory {
         }
         return new Snapshot {live=true,source=s.source,observedAt=s.observedAt,player=s.player,facing=s.facing,onTransport=s.onTransport,objects=objects.ToArray(),context=s.context,mapId=s.mapId,rememberNavigation=s.rememberNavigation};
     }
-    static ObjectData Copy(ObjectData o) {return new ObjectData {name=o.name,id=o.id,entry=o.entry,space=o.space,units=o.units,x=o.x,y=o.y,z=o.z};}
+    static ObjectData Copy(ObjectData o) {return new ObjectData {region=o.region,subregion=o.subregion,name=o.name,id=o.id,entry=o.entry,space=o.space,units=o.units,x=o.x,y=o.y,z=o.z};}
     public bool Flush(DateTimeOffset now,bool force=false) {
         if(!dirty)return true;
         if(!force && (now-lastSave).TotalSeconds<2)return SaveError==null;

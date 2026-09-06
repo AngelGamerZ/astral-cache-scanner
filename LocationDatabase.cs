@@ -9,6 +9,9 @@ using System.Web.Script.Serialization;
 // Portable, character-independent historical locations. Never an active-cache source.
 public sealed class CacheLocation {
     public string realm {get;set;}
+    public string region {get;set;}
+    public string subregion {get;set;}
+    public string regionSource {get {return "player-at-observation";}}
     public int mapId {get;set;}
     public uint entry {get;set;}
     public double x {get;set;}
@@ -44,7 +47,8 @@ public sealed class LocationDatabase {
     }
     static CacheLocation Normalize(CacheLocation p) {
         if(p==null || String.IsNullOrWhiteSpace(p.realm) || p.realm.Length>128 || p.realm.Any(Char.IsControl) || p.mapId<0 || p.mapId>=10000 || p.entry==0 || !Finite(p.x) || !Finite(p.y) || (p.z.HasValue && !Finite(p.z.Value)))throw new InvalidDataException("Ungültiger Fundort (Server, Karte, Objekt-ID oder Koordinaten).");
-        var result=new CacheLocation {realm=p.realm.Trim(),mapId=p.mapId,entry=p.entry,x=Math.Round(p.x,1,MidpointRounding.AwayFromZero),y=Math.Round(p.y,1,MidpointRounding.AwayFromZero),z=p.z.HasValue?(double?)Math.Round(p.z.Value,1,MidpointRounding.AwayFromZero):null,firstSeen=Timestamp(p.firstSeen),lastSeen=Timestamp(p.lastSeen)};
+        if(new[]{p.region,p.subregion}.Any(v=>v!=null && (v.Length>192 || v.Any(Char.IsControl))))throw new InvalidDataException("Ungültiger Regionsname.");
+        var result=new CacheLocation {region=p.region,subregion=p.subregion,realm=p.realm.Trim(),mapId=p.mapId,entry=p.entry,x=Math.Round(p.x,1,MidpointRounding.AwayFromZero),y=Math.Round(p.y,1,MidpointRounding.AwayFromZero),z=p.z.HasValue?(double?)Math.Round(p.z.Value,1,MidpointRounding.AwayFromZero):null,firstSeen=Timestamp(p.firstSeen),lastSeen=Timestamp(p.lastSeen)};
         if(String.CompareOrdinal(result.firstSeen,result.lastSeen)>0)throw new InvalidDataException("Erste Sichtung liegt nach letzter Sichtung.");
         return result;
     }
@@ -54,8 +58,9 @@ public sealed class LocationDatabase {
         if(!target.TryGetValue(key,out existing)) {if(target.Count>=Limit)throw new InvalidDataException("Datenbanklimit von 50.000 Fundorten erreicht.");target.Add(key,p);return true;}
         string first=String.CompareOrdinal(existing.firstSeen,p.firstSeen)<0?existing.firstSeen:p.firstSeen;
         string last=String.CompareOrdinal(existing.lastSeen,p.lastSeen)>0?existing.lastSeen:p.lastSeen;
-        if(first==existing.firstSeen && last==existing.lastSeen)return false;
-        target[key]=new CacheLocation {realm=existing.realm,mapId=existing.mapId,entry=existing.entry,x=existing.x,y=existing.y,z=existing.z,firstSeen=first,lastSeen=last};return true;
+        var regionRecord=!String.IsNullOrEmpty(p.region) && (String.IsNullOrEmpty(existing.region) || String.CompareOrdinal(p.lastSeen,existing.lastSeen)>0 || (p.lastSeen==existing.lastSeen && String.CompareOrdinal(p.region+"|"+p.subregion,existing.region+"|"+existing.subregion)>0))?p:existing;
+        if(first==existing.firstSeen && last==existing.lastSeen && regionRecord.region==existing.region && regionRecord.subregion==existing.subregion)return false;
+        target[key]=new CacheLocation {region=regionRecord.region,subregion=regionRecord.subregion,realm=existing.realm,mapId=existing.mapId,entry=existing.entry,x=existing.x,y=existing.y,z=existing.z,firstSeen=first,lastSeen=last};return true;
     }
     static Dictionary<string,CacheLocation> Read(string path) {
         if(new FileInfo(path).Length>MaxBytes)throw new InvalidDataException("Datei größer als 25 MB.");
@@ -95,7 +100,7 @@ public sealed class LocationDatabase {
             if(r.location.space!=r.context || !r.context.EndsWith(suffix,StringComparison.Ordinal))continue;
             string prefix=r.context.Substring(0,r.context.Length-suffix.Length);int split=prefix.LastIndexOf('|');
             if(split<1 || !System.Text.RegularExpressions.Regex.IsMatch(prefix.Substring(split+1),@"\A[0-9A-F]{16}\z"))continue;
-            var point=Normalize(new CacheLocation {realm=prefix.Substring(0,split),mapId=r.mapId.Value,entry=r.location.entry,x=r.location.x.Value,y=r.location.y.Value,z=r.location.z,firstSeen=r.firstSeen,lastSeen=r.lastSeen});
+            var point=Normalize(new CacheLocation {region=r.location.region,subregion=r.location.subregion,realm=prefix.Substring(0,split),mapId=r.mapId.Value,entry=r.location.entry,x=r.location.x.Value,y=r.location.y.Value,z=r.location.z,firstSeen=r.firstSeen,lastSeen=r.lastSeen});
             int before=records.Count;if(MergeOne(records,point))dirty=true;added+=records.Count-before;
         }
         return added;
@@ -124,7 +129,8 @@ public sealed class LocationDatabase {
     static string LuaText(string text) {return "\""+String.Concat(Encoding.UTF8.GetBytes(text).Select(b=>"\\"+b.ToString("D3",CultureInfo.InvariantCulture)))+"\"";}
     public void ExportLua(string path) {
         CheckExport(path);var b=new StringBuilder("-- Astral Cache historical locations, schema 1. NOT live spawn status.\n-- World coordinates in yards; not normalized zone/map pin coordinates.\n-- Include this data file in a future addon's TOC before its consumer.\nAstralCacheLocations = { schema = 1, coordinates = \"world\", units = \"yards\", locations = {\n");
-        foreach(var p in Archive(records.Values).locations)b.Append("  { realm = ").Append(LuaText(p.realm)).Append(", mapId = ").Append(p.mapId).Append(", entry = ").Append(p.entry).Append(", x = ").Append(Number(p.x)).Append(", y = ").Append(Number(p.y)).Append(", z = ").Append(p.z.HasValue?Number(p.z.Value):"nil").Append(", firstSeen = ").Append(LuaText(p.firstSeen)).Append(", lastSeen = ").Append(LuaText(p.lastSeen)).Append(" },\n");
+        foreach(var p in Archive(records.Values).locations)b.Append("  { realm = ").Append(LuaText(p.realm)).Append(", region = ").Append(p.region==null?"nil":LuaText(p.region)).Append(", subregion = ").Append(p.subregion==null?"nil":LuaText(p.subregion)).Append(", regionSource = ").Append(LuaText("player-at-observation")).Append(", mapId = ").Append(p.mapId).Append(", entry = ").Append(p.entry).Append(", x = ").Append(Number(p.x)).Append(", y = ").Append(Number(p.y)).Append(", z = ").Append(p.z.HasValue?Number(p.z.Value):"nil").Append(", firstSeen = ").Append(LuaText(p.firstSeen)).Append(", lastSeen = ").Append(LuaText(p.lastSeen)).Append(" },\n");
         b.Append("} }\n");AtomicWrite(path,b.ToString(),false);
     }
 }
+

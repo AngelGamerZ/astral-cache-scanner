@@ -138,7 +138,7 @@ public sealed class CacheOverlay : Form {
             string elevation=d!=null && d.Height.HasValue && Math.Abs(d.Height.Value)>3 ? Math.Abs(d.Height.Value).ToString("F1")+" yd "+(d.Height.Value>0?"höher":"tiefer") : "Luftlinie · keine Wegführung";
             g.DrawString(elevation,smallFont,muted,151,169);
             using(var line=new Pen(Color.FromArgb(47,64,85)))g.DrawLine(line,23,197,377,197);
-            g.DrawString(preview?"VORSCHAU · synthetische Testdaten":"Loot: Token-Gutschrift + Kiste verschwunden",smallFont,muted,23,206);
+            g.DrawString(preview?"VORSCHAU · synthetische Testdaten":"Loot: Kiste direkt am Fundort verschwunden",smallFont,muted,23,206);
         }
         g.Restore(original);
     }
