@@ -75,7 +75,7 @@ public static class Reader {
         }
     }
 }
-public class ScannerForm : Form {
+public partial class ScannerForm : Form {
     [System.Runtime.InteropServices.DllImport("user32.dll",SetLastError=true)]static extern bool RegisterHotKey(IntPtr handle,int id,uint modifiers,uint key);
     [System.Runtime.InteropServices.DllImport("user32.dll")]static extern bool UnregisterHotKey(IntPtr handle,int id);
     [System.Runtime.InteropServices.DllImport("user32.dll")]static extern IntPtr GetForegroundWindow();
@@ -87,14 +87,14 @@ public class ScannerForm : Form {
     Label state = new Label { AutoSize = true, Text = "WoW-Ordner auswählen", ForeColor = Color.DarkOrange, Font = new Font("Segoe UI", 15, FontStyle.Bold) };
     Label details = new Label { AutoSize = true, MaximumSize = new Size(900,0), Text = "Direkte, ausschließlich lesende Prüfung der geladenen GameObjects." };
     Label process = new Label { AutoSize = true };
-    ListBox results = new ListBox { Dock = DockStyle.Fill, HorizontalScrollbar = true };
-    ListBox savedFinds=new ListBox {Dock=DockStyle.Fill,HorizontalScrollbar=true};
+    DataGridView results = new DataGridView();
+    DataGridView savedFinds=new DataGridView();
     CheckBox showLooted=new CheckBox {Text="Gelootete anzeigen",AutoSize=true};
     Label memoryStatus=new Label {AutoSize=true,Text="Fundspeicher wird geladen …"};
     CacheMemory cacheMemory;
     LocationDatabase locationDatabase;
     Label databaseStatus=new Label {AutoSize=true,Text="Fundortdatenbank wird geladen …"};
-    ListBox databaseRows=new ListBox {Dock=DockStyle.Fill,HorizontalScrollbar=true};
+    DataGridView databaseRows=new DataGridView();
     string databaseError;
     Timer lootTimer=new Timer {Interval=50};
     DateTimeOffset lastLiveAt;
@@ -139,43 +139,15 @@ public class ScannerForm : Form {
     readonly string settingsFile;
     bool clientApproved;
     Button startScan,selectJson;
-    public ScannerForm(bool promptForPath=true,string customSettingsFile=null) {
+    public ScannerForm(bool promptForPath=true,string customSettingsFile=null,float? scaleOverride=null) {
         settingsFile=customSettingsFile??ClientSettings.DefaultFile;
         using(var screen=Graphics.FromHwnd(IntPtr.Zero))uiScale=Math.Max(1,screen.DpiX/96f);
-        AutoScaleMode=AutoScaleMode.None;
-        var available=Screen.PrimaryScreen.WorkingArea;
-        Text = "Astral Cache Scanner · Live · Nur lesend"; Width = Math.Min((int)(1100*uiScale),available.Width-40); Height = Math.Min((int)(800*uiScale),available.Height-40); MinimumSize = new Size(Math.Min((int)(1000*uiScale),available.Width-40),Math.Min((int)(760*uiScale),available.Height-40));
-        details.MaximumSize=new Size((int)(1000*uiScale),0);
-        Font = new Font("Segoe UI", 10); StartPosition = FormStartPosition.CenterScreen;
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding((int)(20*uiScale)), ColumnCount = 1, RowCount = 10 };
-        foreach (int h in new[] {40,38,38,42,60,45,70}) layout.RowStyles.Add(new RowStyle(SizeType.Absolute,h*uiScale));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent,50)); layout.RowStyles.Add(new RowStyle(SizeType.Absolute,30*uiScale)); layout.RowStyles.Add(new RowStyle(SizeType.Percent,50));
-        layout.Controls.Add(new Label { Text = "ASTRAL CACHE  /  DESKTOP SCANNER", Font = new Font("Segoe UI",18,FontStyle.Bold), AutoSize = true });
-        var a = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 }; a.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100)); a.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,180*uiScale)); a.Controls.Add(client); a.Controls.Add(Button("WoW-Ordner wählen", ChooseClient)); layout.Controls.Add(a);
-        var b = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 }; b.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100)); b.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,180*uiScale)); b.Controls.Add(source); selectJson=Button("JSON-Quelle wählen", SelectSource);selectJson.Enabled=false;b.Controls.Add(selectJson); layout.Controls.Add(b);
-        layout.Controls.Add(state); layout.Controls.Add(details); layout.Controls.Add(process);
-        var actions = new FlowLayoutPanel { Dock = DockStyle.Fill };
-        startScan=Button("Scan starten", ConnectLive);startScan.Enabled=false;actions.Controls.Add(startScan); actions.Controls.Add(Button("Stoppen", Disconnect)); actions.Controls.Add(sound);
-        var top = new CheckBox { Text = "Immer im Vordergrund", AutoSize = true }; top.CheckedChanged += (s,e) => TopMost = top.Checked; actions.Controls.Add(top);
-        actions.Controls.Add(Button("Logs öffnen", () => { Directory.CreateDirectory(logDir); Process.Start("explorer.exe", logDir); }));
-        actions.Controls.Add(Button("Scan speichern", () => { if(lastSnapshot==null) throw new InvalidOperationException("Noch kein aktueller Scan vorhanden."); Directory.CreateDirectory(logDir); string path=Path.Combine(logDir,"snapshot-"+DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+".json"); File.WriteAllText(path,new JavaScriptSerializer().Serialize(lastSnapshot));Write("Aktueller Scan gespeichert: "+path); }));
-        allObjects.CheckedChanged += (s,e) => { if(lastSnapshot!=null) RenderObjects(lastSnapshot); }; actions.Controls.Add(allObjects);
-        overlayEnabled.CheckedChanged+=(s,e)=>overlay.SetEnabled(overlayEnabled.Checked);actions.Controls.Add(overlayEnabled);
-        var anchor=new ComboBox { DropDownStyle=ComboBoxStyle.DropDownList,Width=(int)(130*uiScale) };anchor.Items.AddRange(new object[]{"Oben Mitte","Oben links","Oben rechts","Unten Mitte"});anchor.SelectedIndex=0;anchor.SelectedIndexChanged+=(s,e)=>overlay.OverlayAnchor=anchor.SelectedItem.ToString();actions.Controls.Add(anchor);
-        var tabs=new TabControl {Dock=DockStyle.Fill};var livePage=new TabPage("Live-Objekte");livePage.Controls.Add(results);tabs.TabPages.Add(livePage);
-        var savedPage=new TabPage("Gespeicherte Kisten");var savedLayout=new TableLayoutPanel {Dock=DockStyle.Fill,RowCount=3,ColumnCount=1};savedLayout.RowStyles.Add(new RowStyle(SizeType.Absolute,40*uiScale));savedLayout.RowStyles.Add(new RowStyle(SizeType.Absolute,35*uiScale));savedLayout.RowStyles.Add(new RowStyle(SizeType.Percent,100));
-        var savedActions=new FlowLayoutPanel {Dock=DockStyle.Fill};savedActions.Controls.Add(Button("Als gelootet markieren",()=>MarkSaved(true)));savedActions.Controls.Add(Button("Wieder öffnen",()=>MarkSaved(false)));showLooted.CheckedChanged+=(s,e)=>RenderSaved();savedActions.Controls.Add(showLooted);savedLayout.Controls.Add(savedActions);savedLayout.Controls.Add(memoryStatus);savedLayout.Controls.Add(savedFinds);savedPage.Controls.Add(savedLayout);tabs.TabPages.Add(savedPage);
-        var databasePage=new TabPage("Fundort-Datenbank");databasePage.Name="databasePage";
-        var databaseLayout=new TableLayoutPanel {Dock=DockStyle.Fill,ColumnCount=1,RowCount=3};databaseLayout.RowStyles.Add(new RowStyle(SizeType.Absolute,40*uiScale));databaseLayout.RowStyles.Add(new RowStyle(SizeType.Absolute,40*uiScale));databaseLayout.RowStyles.Add(new RowStyle(SizeType.Percent,100));
-        var databaseActions=new FlowLayoutPanel {Dock=DockStyle.Fill};databaseActions.Controls.Add(Button("Importieren / zusammenführen",ImportLocations));databaseActions.Controls.Add(Button("JSON exportieren",()=>ExportLocations(false)));databaseActions.Controls.Add(Button("Lua fürs Addon exportieren",()=>ExportLocations(true)));databaseLayout.Controls.Add(databaseActions);databaseLayout.Controls.Add(databaseStatus);databaseLayout.Controls.Add(databaseRows);databasePage.Controls.Add(databaseLayout);tabs.TabPages.Add(databasePage);
-        tabs.SelectedIndexChanged+=(s,e)=>{if(tabs.SelectedTab==databasePage){SyncLocations(true);if(databaseError==null)RenderLocations();}};
-        var debugPage=new TabPage("Debug-Log");var debugLayout=new TableLayoutPanel {Dock=DockStyle.Fill,ColumnCount=1,RowCount=2};debugLayout.RowStyles.Add(new RowStyle(SizeType.Absolute,40*uiScale));debugLayout.RowStyles.Add(new RowStyle(SizeType.Percent,100));debugLayout.Controls.Add(Button("Debug-Log exportieren",ExportDebug));debugLayout.Controls.Add(debugText);debugPage.Controls.Add(debugLayout);tabs.TabPages.Add(debugPage);
-        var updatePage=new TabPage("Updates");var updateLayout=new FlowLayoutPanel {Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,Padding=new Padding(12)};updateLayout.Controls.Add(updateStatus);updateLayout.Controls.Add(Button("Auf Updates prüfen",CheckUpdates));updateLayout.Controls.Add(Button("GitHub-Downloads öffnen",()=>Process.Start(ReleaseInfo.ReleasesUrl)));updatePage.Controls.Add(updateLayout);tabs.TabPages.Add(updatePage);
-        Shown+=(s,e)=>CheckUpdates();
-        layout.Controls.Add(actions); layout.Controls.Add(tabs); layout.Controls.Add(new Label { Text = "Statusprotokoll · Treffer stammen aus geladenen Objekten, kein Mouseover nötig", AutoSize = true }); layout.Controls.Add(log); Controls.Add(layout);
-        try {cacheMemory=new CacheMemory(CacheMemory.DefaultFile);RenderSaved();}catch(Exception ex){memoryStatus.Text="Funddatei nicht lesbar: "+ex.Message;Write(memoryStatus.Text);}
-        if(customSettingsFile==null)try {locationDatabase=new LocationDatabase(LocationDatabase.DefaultFile);SyncLocations(true);}catch(Exception ex){databaseStatus.Text="Datenbank nicht verfügbar: "+ex.Message;Write(databaseStatus.Text);}
-        timer.Tick += (s,e) => Poll(); timer.Start(); Shown += (s,e) => { hotkeyRegistered=RegisterHotKey(Handle,LootHotkey,0x4003,0x4c);if(!hotkeyRegistered)Write("Strg+Alt+L ist nicht verfügbar; bitte die Fundliste zum Markieren verwenden.");LoadClient();if(!clientApproved && promptForPath)BeginInvoke(new Action(ChooseClient)); };
+        if(scaleOverride.HasValue)uiScale=scaleOverride.Value;
+        AutoScaleMode=AutoScaleMode.None;BuildUi();
+        if(!scaleOverride.HasValue){var area=Screen.PrimaryScreen.WorkingArea;MinimumSize=new Size(Math.Min(Px(1000),area.Width-40),Math.Min(Px(700),area.Height-40));Size=new Size(Math.Min(Width,area.Width-40),Math.Min(Height,area.Height-40));}
+        try {cacheMemory=new CacheMemory(customSettingsFile==null?CacheMemory.DefaultFile:Path.Combine(Path.GetDirectoryName(Path.GetFullPath(customSettingsFile)),"finds.json"));RenderSaved();}catch(Exception ex){memoryStatus.Text="Funddatei nicht lesbar: "+ex.Message;Write(memoryStatus.Text);}
+        try {locationDatabase=new LocationDatabase(customSettingsFile==null?LocationDatabase.DefaultFile:Path.Combine(Path.GetDirectoryName(Path.GetFullPath(customSettingsFile)),"locations.json"));SyncLocations(true);}catch(Exception ex){databaseStatus.Text="Datenbank nicht verfügbar: "+ex.Message;Write(databaseStatus.Text);}
+        timer.Tick += (s,e) => Poll(); timer.Start(); Shown += (s,e) => { hotkeyRegistered=customSettingsFile==null && RegisterHotKey(Handle,LootHotkey,0x4003,0x4c);if(customSettingsFile==null && !hotkeyRegistered)Write("Strg+Alt+L ist nicht verfügbar; bitte die Fundliste zum Markieren verwenden.");LoadClient();if(customSettingsFile==null)CheckUpdates();RefreshSummary();if(!clientApproved && promptForPath)BeginInvoke(new Action(ChooseClient)); };
         lootTimer.Tick+=(s,e)=>PollLoot();lootTimer.Start();
         FormClosed += (s,e) => { if(hotkeyRegistered)UnregisterHotKey(Handle,LootHotkey);timer.Dispose();lootTimer.Dispose();SyncLocations(true);if(cacheMemory!=null)cacheMemory.Flush(DateTimeOffset.UtcNow,true);overlay.Dispose(); if(liveReader!=null)liveReader.Dispose(); };
     }
@@ -190,10 +162,21 @@ public class ScannerForm : Form {
     }
     void RenderLocations() {
         if(locationDatabase==null)return;
-        int top=databaseRows.TopIndex;databaseRows.BeginUpdate();databaseRows.Items.Clear();
-        foreach(var p in locationDatabase.Records.OrderBy(p=>p.realm).ThenBy(p=>p.mapId).ThenBy(p=>p.x).ThenBy(p=>p.y))databaseRows.Items.Add(String.Format("{0} | Karte {1} | Astral Cache ({2}) | X {3:F1} / Y {4:F1} / Z {5} | zuletzt {6}",p.realm+" · Sichtungsregion: "+(p.region??"unbekannt")+" / "+(p.subregion??"—"),p.mapId,p.entry,p.x,p.y,p.z.HasValue?p.z.Value.ToString("F1"):"?",DateTimeOffset.Parse(p.lastSeen).ToLocalTime().ToString("dd.MM.yyyy HH:mm")));
-        if(databaseRows.Items.Count>0)databaseRows.TopIndex=Math.Min(top,databaseRows.Items.Count-1);databaseRows.EndUpdate();
-        databaseStatus.Text=locationDatabase.Records.Count()+" historische Fundorte · inklusive gelooteter Kisten · keine aktuellen Spawnmeldungen";
+        int top=databaseRows.FirstDisplayedScrollingRowIndex;
+        var selected=databaseRows.CurrentRow==null?null:databaseRows.CurrentRow.Tag as CacheLocation;int restore=-1;
+        rebuildingRows=true;databaseRows.Rows.Clear();
+        string query=databaseSearch==null?"":databaseSearch.Text.Trim();
+        foreach(var p in locationDatabase.Records.OrderBy(p=>p.region).ThenBy(p=>p.mapId).ThenBy(p=>p.x)) {
+            string region=RegionName(p.region,p.subregion),map=MapName(p.mapId);
+            if(query.Length>0 && (region+" "+map+" "+p.realm).IndexOf(query,StringComparison.CurrentCultureIgnoreCase)<0)continue;
+            int i=databaseRows.Rows.Add(region,map,p.realm,DateTimeOffset.Parse(p.lastSeen).ToLocalTime().ToString("dd.MM.yyyy HH:mm"));databaseRows.Rows[i].Tag=p;
+            if(selected!=null && selected.realm==p.realm && selected.mapId==p.mapId && selected.entry==p.entry && selected.x==p.x && selected.y==p.y && selected.z==p.z)restore=i;
+        }
+        databaseRows.ClearSelection();databaseRows.CurrentCell=null;
+        if(restore>=0){databaseRows.CurrentCell=databaseRows.Rows[restore].Cells[0];databaseRows.Rows[restore].Selected=true;}
+        if(top>=0 && databaseRows.Rows.Count>0)databaseRows.FirstDisplayedScrollingRowIndex=Math.Min(top,databaseRows.Rows.Count-1);
+        rebuildingRows=false;UpdateDatabaseSelection();
+        databaseStatus.Text=databaseRows.Rows.Count+" von "+locationDatabase.Records.Count()+" Fundorten · historische Sammlung, keine aktuellen Spawns";RefreshSummary();
     }
     void RequireDatabase() {if(locationDatabase==null)throw new InvalidOperationException("Fundortdatenbank nicht verfügbar. Details im Datenbank-Reiter.");}
     void ImportLocations() {
@@ -214,9 +197,7 @@ public class ScannerForm : Form {
         }
     }
     internal void SaveDatabasePreview(string path) {
-        var page=Controls.Find("databasePage",true).FirstOrDefault() as TabPage;
-        if(page==null)return;((TabControl)page.Parent).SelectedTab=page;
-        Application.DoEvents();using(var bitmap=new Bitmap(Width,Height)){DrawToBitmap(bitmap,new Rectangle(0,0,Width,Height));bitmap.Save(path);}
+        ShowSection("database");Application.DoEvents();using(var bitmap=new Bitmap(Width,Height)){DrawToBitmap(bitmap,new Rectangle(0,0,Width,Height));bitmap.Save(path);}
     }
     protected override void WndProc(ref Message message) {
         if(message.Msg==0x312 && message.WParam.ToInt32()==LootHotkey) {
@@ -235,26 +216,27 @@ public class ScannerForm : Form {
             cacheMemory.Flush(DateTimeOffset.UtcNow,true);Write("Fund per Tastenkürzel bestätigt: "+key);RenderSaved();overlay.SetSnapshot(cacheMemory.ForNavigation(lastSnapshot),liveReader.Pid);
         }
     }
-    sealed class SavedRow {public SavedCache Record;public string Text;public override string ToString(){return Text;}}
     void RenderSaved() {
         if(cacheMemory==null)return;
-        string selected=savedFinds.SelectedItem is SavedRow?((SavedRow)savedFinds.SelectedItem).Record.Key:null;
-        savedFinds.BeginUpdate();savedFinds.Items.Clear();
+        var selected=savedFinds.CurrentRow==null?null:savedFinds.CurrentRow.Tag as SavedCache;
+        string selectedKey=selected==null?null:selected.Key;int top=savedFinds.FirstDisplayedScrollingRowIndex;
+        rebuildingRows=true;savedFinds.Rows.Clear();int restore=-1;
         foreach(var r in cacheMemory.Records.Where(r=>showLooted.Checked || !r.looted).OrderBy(r=>r.looted).ThenByDescending(r=>r.lastSeen)) {
-            string map=r.mapId==0?"Östliche Königreiche":r.mapId==1?"Kalimdor":r.mapId==530?"Scherbenwelt":r.mapId==571?"Nordend":"Karte "+r.mapId;
-            string status=r.looted?"Gelootet":cacheMemory.IsPresent(r)?"Aktuell geladen":"Gespeichert · nicht aktuell bestätigt";
-            string coordinates=r.location.x.HasValue?String.Format("X {0:F1} / Y {1:F1} / Z {2:F1}",r.location.x,r.location.y,r.location.z):"Position fehlt";
-            var row=new SavedRow {Record=r,Text=status+" | "+map+" | Sichtungsregion: "+(r.location.region??"unbekannt")+" / "+(r.location.subregion??"—")+" | "+coordinates+" | zuletzt "+DateTimeOffset.Parse(r.lastSeen).ToLocalTime().ToString("dd.MM. HH:mm:ss")+" | "+r.context};
-            int index=savedFinds.Items.Add(row);if(r.Key==selected)savedFinds.SelectedIndex=index;
+            string status=r.looted?"Gelootet":cacheMemory.IsPresent(r)?"Sichtbar":"Gespeichert";
+            int i=savedFinds.Rows.Add(status,RegionName(r.location.region,r.location.subregion),MapName(r.mapId),DateTimeOffset.Parse(r.lastSeen).ToLocalTime().ToString("dd.MM. HH:mm:ss"));savedFinds.Rows[i].Tag=r;
+            savedFinds.Rows[i].Cells[0].Style.ForeColor=r.looted?Muted:cacheMemory.IsPresent(r)?Mint:Color.FromArgb(234,202,143);
+            if(r.Key==selectedKey)restore=i;
         }
-        savedFinds.EndUpdate();
-        memoryStatus.Text=cacheMemory.SaveError!=null?"Speichern fehlgeschlagen: "+cacheMemory.SaveError:cacheMemory.Records.Count(r=>!r.looted)+" offene Fundorte · verschwundene Objekte werden nicht automatisch gelöscht";
+        savedFinds.ClearSelection();savedFinds.CurrentCell=null;if(restore>=0){savedFinds.CurrentCell=savedFinds.Rows[restore].Cells[0];savedFinds.Rows[restore].Selected=true;}
+        if(top>=0 && savedFinds.Rows.Count>0)savedFinds.FirstDisplayedScrollingRowIndex=Math.Min(top,savedFinds.Rows.Count-1);
+        rebuildingRows=false;UpdateFindSelection();
+        memoryStatus.Text=cacheMemory.SaveError!=null?"Speichern fehlgeschlagen: "+cacheMemory.SaveError:cacheMemory.Records.Count(r=>!r.looted)+" offene Kisten · außerhalb der Reichweite bleiben sie gespeichert";RefreshSummary();
     }
     void MarkSaved(bool looted) {
-        var row=savedFinds.SelectedItem as SavedRow;
-        if(row==null || cacheMemory==null)throw new InvalidOperationException("Bitte zuerst eine Kiste in der Fundliste auswählen.");
-        cacheMemory.Mark(row.Record.Key,looted,looted?"Manuell als gelootet bestätigt":null,DateTimeOffset.UtcNow);cacheMemory.Flush(DateTimeOffset.UtcNow,true);
-        Write((looted?"Fund als gelootet markiert: ":"Fund wieder geöffnet: ")+row.Record.Key);RenderSaved();
+        var row=savedFinds.CurrentRow==null?null:savedFinds.CurrentRow.Tag as SavedCache;
+        if(row==null || cacheMemory==null)throw new InvalidOperationException("Bitte zuerst eine Kiste auswählen.");
+        cacheMemory.Mark(row.Key,looted,looted?"Manuell als gelootet bestätigt":null,DateTimeOffset.UtcNow);cacheMemory.Flush(DateTimeOffset.UtcNow,true);
+        Write((looted?"Kiste als gelootet markiert: ":"Kiste als offen markiert: ")+row.Key);RenderSaved();
         if(lastSnapshot!=null && liveReader!=null)overlay.SetSnapshot(cacheMemory.ForNavigation(lastSnapshot),liveReader.Pid);
     }
     void PollLoot() {
@@ -265,7 +247,7 @@ public class ScannerForm : Form {
             lootError=null;
         }catch(Exception ex){cacheMemory.ResetLoot();if(ex.Message!=lootError){lootError=ex.Message;Write("Automatische Loot-Erkennung momentan nicht verfügbar: "+lootError);}}
     }
-    void SetApproved(bool approved) {clientApproved=approved;startScan.Enabled=approved;selectJson.Enabled=approved;}
+    void SetApproved(bool approved) {clientApproved=approved;startScan.Enabled=approved;selectJson.Enabled=approved;startScan.Visible=approved;stopScan.Visible=approved;setupButton.Visible=!approved;}
     void RequireClient() { SetApproved(false);overlay.Clear();SetState("WoW-Ordner erforderlich","Wähle zuerst den Spielordner mit der passenden Wow.exe. Ohne gültigen Pfad bleibt der Scan gesperrt.",Color.DarkOrange);process.Text="Scan gesperrt"; }
     internal void LoadClient() {
         SetApproved(false);
@@ -291,15 +273,17 @@ public class ScannerForm : Form {
         }
         if(!clientApproved)RequireClient();
     }
-    Button Button(string title, Action action) { var b = new Button { Text = title, AutoSize = true, Height = (int)(30*uiScale) }; b.Click += (s,e) => { try { action(); } catch(Exception ex) { SetState("Fehler", ex.Message, Color.Firebrick); } }; return b; }
+    Button Button(string title, Action action) { var b = new UiActionButton { Text = title, AutoSize = true, Height = (int)(30*uiScale) }; b.Click += (s,e) => { try { action(); } catch(Exception ex) { SetState("Fehler", ex.Message, Color.Firebrick); } }; return b; }
     void Write(string message) {
-        debugJournal.Add(message);debugText.Text=debugJournal.ToString();debugText.SelectionStart=debugText.TextLength;debugText.ScrollToCaret();
+        debugJournal.Add(message);RefreshDebugView();
         string line = DateTimeOffset.Now.ToString("o") + " " + message.Replace("\r"," ").Replace("\n"," | ");
         if (log.TextLength > 50000) log.Clear(); log.AppendText(line + Environment.NewLine);
         try { Directory.CreateDirectory(logDir); string path = Path.Combine(logDir, "scanner-" + DateTime.Now.ToString("yyyy-MM-dd") + ".log"); if (File.Exists(path) && new FileInfo(path).Length > 2000000) File.Move(path, path + "." + DateTime.UtcNow.Ticks); File.AppendAllText(path, line + Environment.NewLine); } catch { log.AppendText("Logdatei nicht beschreibbar.\r\n"); }
     }
     void SetState(string title, string explanation, Color color) {
-        state.Text = title; state.ForeColor = color; details.Text = explanation;
+        state.Text = title.StartsWith("LIVE")?(title.Contains("Keine")?"Scanner läuft":"Kiste entdeckt"):title;
+        state.ForeColor=color==Color.Firebrick?Color.FromArgb(255,155,155):color==Color.DarkOrange?Color.FromArgb(234,202,143):Mint;
+        details.Text=explanation;RefreshSummary();
         string key = title + " | " + explanation; if (key != lastState) { lastState = key; Write(key); }
     }
     void Inspect() {
@@ -311,7 +295,7 @@ public class ScannerForm : Form {
         string addon = Path.Combine(client.Text, "Interface", "AddOns", "ProjectAstral");
         Write("ProjectAstral-Addon: " + (Directory.Exists(addon) ? "vorhanden" : "nicht gefunden") + ". Live-Reader prüft das konkrete Clientprofil separat.");
     }
-    void Disconnect() { proximity.Reset();rewards.Reset();overlay.Clear();if(cacheMemory!=null){cacheMemory.LostLiveData();cacheMemory.Flush(DateTimeOffset.UtcNow,true);RenderSaved();}if(liveReader!=null) {liveReader.Dispose();liveReader=null;} lastSnapshot=null; source.Clear(); demoMode = false; previous = ""; known.Clear(); results.Items.Clear(); if(!clientApproved)RequireClient();else SetState("Scanner gestoppt", "Mit „Scan starten“ die geladenen Spielobjekte wieder lesend prüfen.", Color.DarkOrange); }
+    void Disconnect() { proximity.Reset();rewards.Reset();overlay.Clear();if(cacheMemory!=null){cacheMemory.LostLiveData();cacheMemory.Flush(DateTimeOffset.UtcNow,true);RenderSaved();}if(liveReader!=null) {liveReader.Dispose();liveReader=null;} lastSnapshot=null; source.Clear(); demoMode = false; previous = ""; known.Clear(); results.Rows.Clear(); if(!clientApproved)RequireClient();else SetState("Scanner gestoppt", "Mit „Scan starten“ die geladenen Spielobjekte wieder lesend prüfen.", Color.DarkOrange); }
     void ConnectLive() {
         Disconnect();
         if(!clientApproved) {RequireClient();return;}
@@ -330,12 +314,12 @@ public class ScannerForm : Form {
         if(s.live && cacheMemory!=null) {
             var completed=proximity.Update(s,cacheMemory,DateTimeOffset.UtcNow);
             if(completed.Length>0){cacheMemory.Flush(DateTimeOffset.UtcNow,true);Write("Näheprüfung: "+completed.Length+" Kiste(n) als gelootet markiert. "+proximity.Status);RenderSaved();SyncLocations(true);}
-            if(ticks%10==0){debugJournal.Add("Scan · Karte "+s.mapId+" · Region "+s.region+" / "+s.subregion+" · Objekte "+s.gameObjects+" · unlesbar "+s.unreadable+" · "+proximity.Status);debugText.Text=debugJournal.ToString();}
+            if(ticks%10==0){debugJournal.Add("Scan · Karte "+s.mapId+" · Region "+s.region+" / "+s.subregion+" · Objekte "+s.gameObjects+" · unlesbar "+s.unreadable+" · "+proximity.Status);RefreshDebugView();}
         }else proximity.Reset();
         if(s.live && !s.demo)CheckRewards(s);else rewards.Reset();
         var matches = s.objects.Where(o => Reader.IsCache(o.name) && (cacheMemory==null || !cacheMemory.Completed(s,o))).ToArray();
         Snapshot navigation=cacheMemory==null?s:cacheMemory.ForNavigation(s);int remembered=navigation.objects.Count(o=>o.remembered);
-        lastSnapshot=s;if(ticks%5==0 || matches.Length>0 || results.Items.Count==0)RenderObjects(s); var current = new HashSet<string>();
+        lastSnapshot=s;if(ticks%5==0 || matches.Length>0 || results.Rows.Count==0)RenderObjects(s); var current = new HashSet<string>();
         if(s.live && liveReader!=null){lastLiveAt=DateTimeOffset.UtcNow;overlay.SetSnapshot(navigation,liveReader.Pid);}else overlay.Clear();
         foreach(var o in matches) { string key = s.source + "|" + (o.id ?? (o.space + ":" + o.x + ":" + o.y + ":" + o.z)); current.Add(key); }
         string title = s.live ? "LIVE · " : s.demo ? "DEMO · " : "EXPORT · "; title += matches.Length > 0 ? "Astral Cache erkannt (" + matches.Length + ")" : s.live ? "Keine Astral Cache in den gelesenen Objekten" : "Kein Treffer im aktuellen Export";
@@ -351,25 +335,25 @@ public class ScannerForm : Form {
         known = current;
     }
     void RenderObjects(Snapshot s) {
-        var list=s.objects.Where(o=>allObjects.Checked || Reader.IsCache(o.name)).OrderByDescending(o=>Reader.IsCache(o.name)).ThenBy(o=>o.name);
-        int topIndex=results.Items.Count>0 ? results.TopIndex : 0;
-        results.BeginUpdate(); results.Items.Clear();
-        foreach(var o in list)results.Items.Add((Reader.IsCache(o.name)?"*** ":"")+o.name+" | ID "+o.entry+" | "+Reader.Position(s.player,o));
-        if(results.Items.Count>0)results.TopIndex=s.objects.Any(o=>Reader.IsCache(o.name))?0:Math.Min(topIndex,results.Items.Count-1);
-        results.EndUpdate();
+        int top=results.FirstDisplayedScrollingRowIndex;results.Rows.Clear();
+        foreach(var o in s.objects.Where(o=>allObjects.Checked || (Reader.IsCache(o.name) && (cacheMemory==null || !cacheMemory.Completed(s,o)))).OrderByDescending(o=>Reader.IsCache(o.name)).ThenBy(o=>o.name)) {
+            double distance=Navigation.Distance(s.player,o);
+            int i=results.Rows.Add(o.name,RegionName(o.region,o.subregion),Double.IsInfinity(distance)?"Nicht verfügbar":distance.ToString("F1")+" yd",s.live?"Sichtbar":s.demo?"Testdaten":"Datei-Import");results.Rows[i].Tag=o;
+        }
+        results.ClearSelection();results.CurrentCell=null;if(top>=0 && results.Rows.Count>0)results.FirstDisplayedScrollingRowIndex=Math.Min(top,results.Rows.Count-1);RefreshSummary();
     }
     void Poll() {
         if(!clientApproved)return;
         ticks++;
         if(liveReader!=null) {
             try { var snapshot=liveReader.Scan(); Display(snapshot); if(ticks%150==0)Write(String.Format("Live-Status: {0} Objekte, {1}/{2} GameObject-Namen, {3} ms",snapshot.totalObjects,snapshot.objects.Length,snapshot.gameObjects,snapshot.scanMilliseconds)); }
-            catch(Exception ex) { proximity.Reset();rewards.Reset();overlay.Clear();if(cacheMemory!=null){cacheMemory.LostLiveData();RenderSaved();}lastSnapshot=null;results.Items.Clear();known.Clear();SetState("Live-Scan nicht verfügbar",ex.Message,Color.Firebrick);process.Text="Kein aktueller vollständiger Scan · wird erneut geprüft"; }
+            catch(Exception ex) { proximity.Reset();rewards.Reset();overlay.Clear();if(cacheMemory!=null){cacheMemory.LostLiveData();RenderSaved();}lastSnapshot=null;results.Rows.Clear();known.Clear();SetState("Live-Scan nicht verfügbar",ex.Message,Color.Firebrick);process.Text="Kein aktueller vollständiger Scan · wird erneut geprüft"; }
             return;
         }
         if (ticks % 5 == 0) { var ps = Process.GetProcessesByName("Wow"); process.Text = ps.Length > 0 ? "WoW läuft · Live-Reader gestoppt" : "WoW-Prozess nicht gefunden"; foreach(var p in ps) p.Dispose(); }
         if (demoMode || String.IsNullOrWhiteSpace(source.Text)) return;
         try { var s = Reader.Read(source.Text); string signature = new JavaScriptSerializer().Serialize(s); if (signature != previous) { Display(s); previous = signature; } }
-        catch(Exception ex) { previous = ""; known.Clear(); results.Items.Clear(); SetState("Quelle nicht auswertbar", ex.Message, Color.Firebrick); }
+        catch(Exception ex) { previous = ""; known.Clear(); results.Rows.Clear(); SetState("Quelle nicht auswertbar", ex.Message, Color.Firebrick); }
     }
 }
 public static class Program {
@@ -383,6 +367,7 @@ public static class Program {
         if (args.Length==2 && args[0]=="--database-test") return DatabaseTests.Run(args[1]);
         if (args.Length==2 && args[0]=="--reward-test") return RewardTests.Run(args[1]);
         if (args.Length==2 && args[0]=="--desktop-test") return DesktopTests.Run(args[1]);
+        if (args.Length==2 && args[0]=="--ui-test") return UiAcceptanceTests.Run(args[1]);
         if(args.Contains("--update-check")){try{File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"update-check-results.txt"),ReleaseInfo.Check());return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"update-check-results.txt"),ex.ToString());return 1;}}
         if (args.Contains("--live-once")) {
             try { string directory=ClientSettings.Load(ClientSettings.DefaultFile);if(directory==null)throw new InvalidOperationException("Zuerst die App öffnen und den WoW-Ordner auswählen.");using(var reader=new LiveReader(directory)) { var s=reader.Scan(); File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"live-check.json"),new JavaScriptSerializer().Serialize(s)); } return 0; }
@@ -417,4 +402,6 @@ public static class Tests {
         } catch(Exception ex) { File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"test-results.txt"),ex.ToString()); return 1; }
     }
 }
+
+
 
