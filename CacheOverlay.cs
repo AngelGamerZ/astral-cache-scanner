@@ -73,6 +73,13 @@ public sealed class CacheOverlay : Form {
     CacheDirection direction;
     int gamePid;
     bool active=true;
+    string diagnosticState;
+    public event Action<string> Diagnostic;
+    void Report(string state) {
+        if(diagnosticState==state)return;
+        diagnosticState=state;
+        if(Diagnostic!=null)Diagnostic("Overlay: "+state);
+    }
     public string OverlayAnchor="Oben Mitte";
     public CacheOverlay() {
         FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;TopMost=true;StartPosition=FormStartPosition.Manual;
@@ -86,18 +93,21 @@ public sealed class CacheOverlay : Form {
     protected override CreateParams CreateParams { get { var cp=base.CreateParams;cp.ExStyle|=Transparent|Layered|ToolWindow|NoActivate;return cp; } }
     public bool InputTransparent { get { int flags=GetWindowLong(Handle,-20);return (flags&(Transparent|Layered|ToolWindow|NoActivate))==(Transparent|Layered|ToolWindow|NoActivate); } }
     public CacheDirection CurrentDirection {get {return direction;}}
-    public void SetEnabled(bool value) { active=value;if(!active)Hide();else PositionOverGame(); }
+    public void SetEnabled(bool value) { active=value;PositionOverGame(); }
     public void SetSnapshot(Snapshot snapshot,int pid) {
         direction=Navigation.Select(snapshot);gamePid=pid;age.Restart();Invalidate();PositionOverGame();
     }
-    public void Clear() { direction=null;Hide(); }
+    public void Clear() { direction=null;Hide();Report("ausgeblendet – keine aktuellen Scandaten; keine Loot-Bestätigung."); }
     void PositionOverGame() {
-        if(!active || direction==null || gamePid==0 || age.ElapsedMilliseconds>2000) { if(Visible)Hide();return; }
+        if(!active || direction==null || gamePid==0 || age.ElapsedMilliseconds>2000) {
+            if(Visible)Hide();
+            Report(!active?"ausgeblendet – in Einstellungen deaktiviert.":direction==null?"ausgeblendet – kein offenes Navigationsziel; Loot-Abschluss siehe separate Kistenmeldung.":gamePid==0?"ausgeblendet – kein Spielprozess.":"ausgeblendet – Scandaten älter als 2 Sekunden; keine Loot-Bestätigung.");return;
+        }
         IntPtr foreground=GetForegroundWindow();uint process;
         GetWindowThreadProcessId(foreground,out process);
-        if(process!=(uint)gamePid || IsIconic(foreground)) { if(Visible)Hide();return; }
+        if(process!=(uint)gamePid || IsIconic(foreground)) { if(Visible)Hide();Report("ausgeblendet – WoW nicht im Vordergrund; keine Loot-Bestätigung.");return; }
         RECT rect;var origin=new POINT();
-        if(!GetClientRect(foreground,out rect) || !ClientToScreen(foreground,ref origin) || rect.Right-rect.Left<Width || rect.Bottom-rect.Top<Height) { if(Visible)Hide();return; }
+        if(!GetClientRect(foreground,out rect) || !ClientToScreen(foreground,ref origin) || rect.Right-rect.Left<Width || rect.Bottom-rect.Top<Height) { if(Visible)Hide();Report("ausgeblendet – Spielfenster nicht verfügbar oder zu klein; keine Loot-Bestätigung.");return; }
         int width=rect.Right-rect.Left,height=rect.Bottom-rect.Top;
         int margin=(int)(20*renderScale);
         int x=OverlayAnchor=="Oben links"?margin:OverlayAnchor=="Oben rechts"?width-Width-margin:(width-Width)/2;
@@ -105,6 +115,7 @@ public sealed class CacheOverlay : Form {
         x=Math.Max(0,Math.Min(x,width-Width));y=Math.Max(0,Math.Min(y,height-Height));
         Location=new Point(origin.X+x,origin.Y+y);
         if(!Visible)Show();
+        Report("sichtbar | Objekt "+direction.Target.id+" | "+(direction.Target.remembered?"gespeicherter Fund":"geladene Kiste")+" | "+(direction.AtPoint?"Zielpunkt erreicht: Zielmarkierung ersetzt Pfeil; noch keine Loot-Bestätigung.":direction.RelativeAngle.HasValue?"Richtungspfeil aktiv.":direction.Instruction));
         SetWindowPos(Handle,new IntPtr(-1),Left,Top,Width,Height,0x0010); // SWP_NOACTIVATE
     }
     static GraphicsPath Rounded(RectangleF r,float radius) {

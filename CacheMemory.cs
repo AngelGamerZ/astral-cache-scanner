@@ -27,6 +27,7 @@ public sealed class CacheMemory {
     string lootKey;bool sawContents;int emptySamples;
     public IEnumerable<SavedCache> Records {get {return records.Values;}}
     public string SaveError {get;private set;}
+    public event Action<SavedCache> CompletionChanged;
     public static string DefaultFile {get {return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AstralScanner","finds.json");}}
     public CacheMemory(string path) {
         file=path;
@@ -70,7 +71,10 @@ public sealed class CacheMemory {
     }
     public bool Mark(string key,bool looted,string reason,DateTimeOffset now) {
         SavedCache r;if(!records.TryGetValue(key,out r))return false;
-        r.looted=looted;r.completedAt=looted?now.ToString("o"):null;r.completionReason=looted?reason:null;r.absentAfterLoot=false;absentSince.Remove(key);dirty=true;ResetLoot();return true;
+        bool changed=r.looted!=looted;
+        r.looted=looted;r.completedAt=looted?now.ToString("o"):null;r.completionReason=looted?reason:null;r.absentAfterLoot=false;absentSince.Remove(key);dirty=true;ResetLoot();
+        if(changed && CompletionChanged!=null)CompletionChanged(r);
+        return true;
     }
     public void ResetLoot() {lootKey=null;sawContents=false;emptySamples=0;}
     public string ObserveLoot(Snapshot s,LootObservation loot,DateTimeOffset now) {

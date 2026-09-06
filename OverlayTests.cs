@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -35,6 +36,7 @@ public static class OverlayTests {
         try {
             CheckDirections();Application.EnableVisualStyles();
             using(var overlay=new CacheOverlay()) {
+                var diagnostics=new System.Collections.Generic.List<string>();overlay.Diagnostic+=message=>diagnostics.Add(message);
                 Check(overlay.InputTransparent,"Layered/click-through/noactivate/toolwindow flags");
                 var sample=Sample(24,-20,0);
                 overlay.SavePreview(Navigation.Select(sample),Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"overlay-preview.png"));
@@ -46,7 +48,11 @@ public static class OverlayTests {
                 // A test-owned PID must not display over the user's game or other apps.
                 overlay.SetSnapshot(sample,Process.GetCurrentProcess().Id);Application.DoEvents();
                 Check(!overlay.Visible,"Foreground gating");Check(GetForegroundWindow()==before,"Focus unchanged");
+                Check(diagnostics.Last().Contains("nicht im Vordergrund") && diagnostics.Last().Contains("keine Loot-Bestätigung"),"Focus loss logged separately from loot");
+                int count=diagnostics.Count;overlay.SetSnapshot(sample,Process.GetCurrentProcess().Id);Check(diagnostics.Count==count,"Stable overlay state does not flood log");
+                overlay.SetEnabled(false);Check(diagnostics.Last().Contains("deaktiviert"),"Disabled overlay logged");
                 overlay.Clear();Check(!overlay.Visible,"Hidden after lost target");
+                Check(diagnostics.Last().Contains("keine aktuellen Scandaten"),"Missing scan logged");
             }
             File.WriteAllText(report,"PASS: compass directions, rotation, wrapping, near/vertical targets, missing data, transport, nearest target, no demo/export, window input styles, foreground gating, focus preservation, clear/hide. Preview uses explicitly labelled synthetic data.\r\n");return 0;
         } catch(Exception ex) {File.WriteAllText(report,ex.ToString());return 1;}

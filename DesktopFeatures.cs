@@ -8,7 +8,7 @@ using System.Text;
 using System.Web.Script.Serialization;
 
 public static class ReleaseInfo {
-    public const string Version="1.2.0";
+    public const string Version="1.2.1";
     public const string Repository="AngelGamerZ/astral-cache-scanner";
     public const string ReleasesUrl="https://github.com/"+Repository+"/releases";
     public static string Check() {
@@ -33,6 +33,9 @@ public static class ReleaseInfo {
 }
 
 public sealed class DebugJournal {
+    public static string CompletionMessage(SavedCache r) {
+        return (r.looted?"Kiste als gelootet markiert":"Kiste als offen markiert")+" | "+r.location.name+" | Objekt "+r.location.id+" | Karte "+r.mapId+" | Region "+(r.location.region??"Nicht erfasst")+" | "+String.Format(System.Globalization.CultureInfo.InvariantCulture,"X {0} / Y {1} / Z {2}",r.location.x,r.location.y,r.location.z)+" | Grund: "+(r.looted?r.completionReason??"Nicht angegeben":"Manuell wieder geöffnet")+" | Status im Speicher geändert; Speicherung wird anschließend versucht.";
+    }
     readonly Queue<string> lines=new Queue<string>();
     public void Add(string text) {
         string line=DateTimeOffset.Now.ToString("o")+" "+text.Replace("\r"," ").Replace("\n"," | ");

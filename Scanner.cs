@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
@@ -145,8 +145,9 @@ public partial class ScannerForm : Form {
         if(scaleOverride.HasValue)uiScale=scaleOverride.Value;
         AutoScaleMode=AutoScaleMode.None;BuildUi();
         if(!scaleOverride.HasValue){var area=Screen.PrimaryScreen.WorkingArea;MinimumSize=new Size(Math.Min(Px(1000),area.Width-40),Math.Min(Px(700),area.Height-40));Size=new Size(Math.Min(Width,area.Width-40),Math.Min(Height,area.Height-40));}
-        try {cacheMemory=new CacheMemory(customSettingsFile==null?CacheMemory.DefaultFile:Path.Combine(Path.GetDirectoryName(Path.GetFullPath(customSettingsFile)),"finds.json"));RenderSaved();}catch(Exception ex){memoryStatus.Text="Funddatei nicht lesbar: "+ex.Message;Write(memoryStatus.Text);}
+        try {cacheMemory=new CacheMemory(customSettingsFile==null?CacheMemory.DefaultFile:Path.Combine(Path.GetDirectoryName(Path.GetFullPath(customSettingsFile)),"finds.json"));cacheMemory.CompletionChanged += r => Write(DebugJournal.CompletionMessage(r));RenderSaved();}catch(Exception ex){memoryStatus.Text="Funddatei nicht lesbar: "+ex.Message;Write(memoryStatus.Text);}
         try {locationDatabase=new LocationDatabase(customSettingsFile==null?LocationDatabase.DefaultFile:Path.Combine(Path.GetDirectoryName(Path.GetFullPath(customSettingsFile)),"locations.json"));SyncLocations(true);}catch(Exception ex){databaseStatus.Text="Datenbank nicht verfügbar: "+ex.Message;Write(databaseStatus.Text);}
+        overlay.Diagnostic += message => Write(message);
         timer.Tick += (s,e) => Poll(); timer.Start(); Shown += (s,e) => { hotkeyRegistered=customSettingsFile==null && RegisterHotKey(Handle,LootHotkey,0x4003,0x4c);if(customSettingsFile==null && !hotkeyRegistered)Write("Strg+Alt+L ist nicht verfügbar; bitte die Fundliste zum Markieren verwenden.");LoadClient();if(customSettingsFile==null)CheckUpdates();RefreshSummary();if(!clientApproved && promptForPath)BeginInvoke(new Action(ChooseClient)); };
         lootTimer.Tick+=(s,e)=>PollLoot();lootTimer.Start();
         FormClosed += (s,e) => { if(hotkeyRegistered)UnregisterHotKey(Handle,LootHotkey);timer.Dispose();lootTimer.Dispose();SyncLocations(true);if(cacheMemory!=null)cacheMemory.Flush(DateTimeOffset.UtcNow,true);overlay.Dispose(); if(liveReader!=null)liveReader.Dispose(); };

@@ -2,9 +2,9 @@
 
 Astral Scanner ist eine portable Windows-App für Project Astral / WoW 3.3.5a. Sie erkennt geladene Objekte namens **Astral Cache**, merkt sich ihre Fundorte und zeigt mit einem Overlay Richtung und Entfernung zur nächsten offenen Kiste an. Der Scanner arbeitet lesend; er bewegt den Charakter nicht und führt keine Klicks oder Loot-Aktionen aus.
 
-**Aktuelle Version: 1.2.0** · Windows · .NET Framework 4.x · ZIP ohne Installation
+**Aktuelle Version: 1.2.1** · Windows · .NET Framework 4.x · ZIP ohne Installation
 
-[Windows-Version 1.2.0 herunterladen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/download/v1.2.0/AstralScanner-v1.2.0.zip) · [Neuestes Release & Änderungen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/latest) · [Online-Anleitung](https://angelgamerz.github.io/astral-cache-scanner/)
+[Windows-Version 1.2.1 herunterladen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/download/v1.2.1/AstralScanner-v1.2.1.zip) · [Neuestes Release & Änderungen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/latest) · [Online-Anleitung](https://angelgamerz.github.io/astral-cache-scanner/)
 
 ## Schnellstart
 
@@ -54,7 +54,7 @@ Jede erkannte Kiste wird automatisch unter **Meine Kisten** gespeichert. Beim Vo
 | **Gespeichert** | Ein offener Fund ist bekannt, wird aber gerade nicht geladen. |
 | **Gelootet** | Der Fund wurde automatisch oder manuell als erledigt markiert. |
 
-Die automatische Näheprüfung markiert einen Fund als gelootet, wenn der Spieler **höchstens 10 Yards** von seinen Koordinaten entfernt ist und die Kiste **mindestens eine Sekunde** lang in vollständigen, gültigen Scans fehlt. Bei bekannten Höhen zählt der räumliche Abstand. Tokens sind dafür nicht erforderlich. Lesefehler, ungeeignete Koordinaten oder unterbrochene Scans verhindern diese Näheentscheidung.
+Die automatische Näheprüfung markiert einen Fund als gelootet, wenn der Spieler **höchstens 10 Yards** von seinen Koordinaten entfernt ist und die Kiste **mindestens eine Sekunde** lang in vollständigen, gültigen Scans fehlt. Für diese Prüfung müssen auch die Höhen beider Positionen bekannt sein; es zählt der räumliche Abstand. Tokens sind dafür nicht erforderlich. Lesefehler, ungeeignete Koordinaten oder unterbrochene Scans verhindern diese Näheentscheidung.
 
 Das ist eine Erledigungsannahme: Auch eine von jemand anderem gelootete oder verschwundene Kiste kann so abgeschlossen werden. Ebenso kann ein bereits leerer gespeicherter Fundort beim späteren Besuch erledigt werden. Außerhalb der Nähegrenze reicht das Verschwinden beim Weiterfliegen dafür nicht aus.
 
