@@ -122,7 +122,7 @@ public sealed class CacheOverlay : Form {
         try {placement=OverlayPlacement.Load(placementFile);}catch {placement=null;}
         FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;TopMost=true;StartPosition=FormStartPosition.Manual;
         using(var screen=Graphics.FromHwnd(IntPtr.Zero))renderScale=Math.Max(1,screen.DpiX/96f);
-        AutoScaleMode=AutoScaleMode.None;ClientSize=new Size((int)(CardWidth*renderScale),(int)(CardHeight*renderScale));BackColor=Color.FromArgb(17,22,33);Opacity=0.94;
+        AutoScaleMode=AutoScaleMode.None;ClientSize=new Size((int)(CardWidth*renderScale),(int)(CardHeight*renderScale));BackColor=Color.FromArgb(1,2,3);TransparencyKey=BackColor;Opacity=1;
         DoubleBuffered=true;Text="Astral Cache Overlay";
         using(var path=Rounded(new RectangleF(0,0,Width,Height),18*renderScale))Region=new Region(path);
         placementTimer.Tick+=(s,e)=>PositionOverGame();placementTimer.Start();
@@ -199,7 +199,6 @@ public sealed class CacheOverlay : Form {
         var original=g.Save();g.ScaleTransform(renderScale,renderScale);
         g.SmoothingMode=SmoothingMode.AntiAlias;g.TextRenderingHint=System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
         g.Clear(BackColor);
-        using(var border=new Pen(Color.FromArgb(65,83,107),1))using(var outline=Rounded(new RectangleF(0.5f,0.5f,CardWidth-1,CardHeight-1),18))g.DrawPath(border,outline);
         using(var format=new StringFormat { Alignment=StringAlignment.Center,LineAlignment=StringAlignment.Center,FormatFlags=StringFormatFlags.NoWrap })
         using(var headingFont=new Font("Segoe UI",20,FontStyle.Bold,GraphicsUnit.Pixel))
         using(var gold=new SolidBrush(Color.FromArgb(248,201,105)))g.DrawString(d!=null && d.Target.remembered ? "Astral Cache Saved" : "Astral Cache Found",headingFont,gold,new RectangleF(10,8,260,27),format);
@@ -223,7 +222,7 @@ public sealed class CacheOverlay : Form {
             g.DrawString(distance,distanceFont,white,new RectangleF(91,42,174,50),format);
         g.Restore(original);
     }
-    public void SavePreview(CacheDirection data,string path) { using(var bitmap=new Bitmap(Width,Height))using(var g=Graphics.FromImage(bitmap)) { DrawCard(g,data,true);bitmap.Save(path); } }
+    public void SavePreview(CacheDirection data,string path) { using(var bitmap=new Bitmap(Width,Height)) {using(var g=Graphics.FromImage(bitmap))DrawCard(g,data,true);bitmap.MakeTransparent(TransparencyKey);bitmap.Save(path); } }
     protected override void Dispose(bool disposing) {
         if(disposing) { placementTimer.Dispose();titleFont.Dispose();numberFont.Dispose();bodyFont.Dispose();smallFont.Dispose(); }
         base.Dispose(disposing);

@@ -2,9 +2,9 @@
 
 Astral Scanner ist eine portable Windows-App für Project Astral / WoW 3.3.5a. Sie erkennt geladene Objekte namens **Astral Cache**, merkt sich ihre Fundorte und zeigt mit einem Overlay Richtung und Entfernung zur nächsten offenen Kiste an. Der Scanner arbeitet lesend; er bewegt den Charakter nicht und führt keine Klicks oder Loot-Aktionen aus.
 
-**Aktuelle Version: 1.5.1** · Windows · .NET Framework 4.5 oder neuer · ZIP ohne Installation
+**Aktuelle Version: 1.5.2** · Windows · .NET Framework 4.5 oder neuer · ZIP ohne Installation
 
-[Windows-Version 1.5.1 herunterladen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/download/v1.5.1/AstralScanner-v1.5.1.zip) · [Neuestes Release & Änderungen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/latest) · [Online-Anleitung](https://angelgamerz.github.io/astral-cache-scanner/)
+[Windows-Version 1.5.2 herunterladen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/download/v1.5.2/AstralScanner-v1.5.2.zip) · [Neuestes Release & Änderungen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/latest) · [Online-Anleitung](https://angelgamerz.github.io/astral-cache-scanner/)
 
 ## Schnellstart
 
@@ -39,6 +39,8 @@ Die App liest Clientdaten ohne Speicheränderungen, Injection oder Eingabeautoma
 | **Einstellungen** | Spielordner, Overlay, Overlayposition, Alarmton, Fenster im Vordergrund und GitHub-Updates. Weitere Optionen sind durch Scrollen erreichbar. |
 
 ## Overlay und Richtung
+
+Ab Version 1.5.2 ist der Hintergrund vollständig transparent, ohne Rahmen. Nur Schrift, Pfeil und Entfernung bleiben sichtbar. Normale Klicks gehen durch das Overlay. Zum Verschieben Shift halten und direkt an der Schrift oder am Pfeil ziehen; leere transparente Flächen bleiben durchlässig.
 
 Ab Version 1.5.1 zeigt das kompakte Overlay ausschließlich Überschrift, Richtungspfeil und Entfernung. Zusätzliche Statuszeilen und Fußtexte entfallen. Die Zielmarkierung ersetzt den Pfeil bei gleicher horizontaler Position; eine angezeigte Restentfernung kann dann einen Höhenunterschied bedeuten. Sie bestätigt keinen Lootabschluss.
 

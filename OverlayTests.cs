@@ -47,12 +47,18 @@ public static class OverlayTests {
                 Check((overlay.ClientSize.Width/scale)*(overlay.ClientSize.Height/scale)<=400*230*0.31f,"Compact overlay must use at most 31 percent of the previous screen area");
                 var diagnostics=new System.Collections.Generic.List<string>();overlay.Diagnostic+=message=>diagnostics.Add(message);
                 Check(overlay.InputTransparent,"Layered/click-through/noactivate/toolwindow flags");
+                Check(overlay.TransparencyKey==overlay.BackColor && overlay.Opacity==1,"Background uses full color-key transparency; content stays opaque");
                 var setInteractive=typeof(CacheOverlay).GetMethod("SetInteractive",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);
                 setInteractive.Invoke(overlay,new object[]{true});Check(!overlay.InputTransparent,"Shift drag accepts mouse input");
                 setInteractive.Invoke(overlay,new object[]{false});Check(overlay.InputTransparent,"Click-through restored after drag mode");
                 overlay.ResetPosition();Check(OverlayPlacement.Load(preferences)==null,"Reset clears custom placement");
                 var sample=Sample(24,-20,0);
                 overlay.SavePreview(Navigation.Select(sample),Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"overlay-preview.png"));
+                using(var preview=new System.Drawing.Bitmap(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"overlay-preview.png"))) {
+                    Check(preview.GetPixel(0,0).A==0 && preview.GetPixel(preview.Width/2,preview.Height-2).A==0,"Preview has transparent corners and no rectangular border");
+                    int opaque=0;for(int py=0;py<preview.Height;py++)for(int px=0;px<preview.Width;px++)if(preview.GetPixel(px,py).A!=0)opaque++;
+                    Check(opaque>0 && opaque<preview.Width*preview.Height/3,"Only glyphs and arrow occupy overlay pixels");
+                }
                 sample.objects[0].remembered=true;
                 overlay.SavePreview(Navigation.Select(sample),Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"overlay-saved-preview.png"));
                 var far=Sample(99999,99999,0);far.objects[0].z=99999;
