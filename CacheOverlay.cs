@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -91,7 +91,7 @@ public sealed class CacheOverlay : Form {
     [DllImport("user32.dll",EntryPoint="SetWindowLongW")] static extern int SetWindowLong(IntPtr window,int index,int value);
     [DllImport("user32.dll")] static extern short GetAsyncKeyState(int key);
     const int Transparent=0x20,Layered=0x80000,ToolWindow=0x80,NoActivate=0x8000000;
-    const int CardWidth=400,CardHeight=230;
+    const int CardWidth=280,CardHeight=100;
     readonly Timer placementTimer=new Timer { Interval=100 };
     readonly Stopwatch age=Stopwatch.StartNew();
     readonly Font titleFont=new Font("Segoe UI",24,FontStyle.Bold,GraphicsUnit.Pixel);
@@ -199,31 +199,28 @@ public sealed class CacheOverlay : Form {
         var original=g.Save();g.ScaleTransform(renderScale,renderScale);
         g.SmoothingMode=SmoothingMode.AntiAlias;g.TextRenderingHint=System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
         g.Clear(BackColor);
-        using(var border=new Pen(Color.FromArgb(82,102,135),1))using(var outline=Rounded(new RectangleF(0.5f,0.5f,CardWidth-1,CardHeight-1),18))g.DrawPath(border,outline);
-        using(var accent=new SolidBrush(Color.FromArgb(248,201,105)))g.FillRectangle(accent,24,0,84,3);
-        bool remembered=d!=null && d.Target.remembered;
-        using(var gold=new SolidBrush(Color.FromArgb(248,201,105)))g.DrawString(remembered?"Astral Cache Saved":"Astral Cache Found",titleFont,gold,21,17);
-        using(var muted=new SolidBrush(Color.FromArgb(166,182,205)))g.DrawString(remembered?"Gespeicherter Fundort · aktuell nicht bestätigt":d!=null && d.Count>1 ? "Nächste Kiste · "+d.Count+" Fundorte" : "Geladenes Spielobjekt",smallFont,muted,23,49);
-        var center=new PointF(83,123);
-        using(var ring=new Pen(Color.FromArgb(47,64,85),2))g.DrawEllipse(ring,39,79,88,88);
+        using(var border=new Pen(Color.FromArgb(65,83,107),1))using(var outline=Rounded(new RectangleF(0.5f,0.5f,CardWidth-1,CardHeight-1),18))g.DrawPath(border,outline);
+        using(var format=new StringFormat { Alignment=StringAlignment.Center,LineAlignment=StringAlignment.Center,FormatFlags=StringFormatFlags.NoWrap })
+        using(var headingFont=new Font("Segoe UI",20,FontStyle.Bold,GraphicsUnit.Pixel))
+        using(var gold=new SolidBrush(Color.FromArgb(248,201,105)))g.DrawString(d!=null && d.Target.remembered ? "Astral Cache Saved" : "Astral Cache Found",headingFont,gold,new RectangleF(10,8,260,27),format);
+        var center=new PointF(48,67);
         if(d!=null && d.RelativeAngle.HasValue && !d.AtPoint) {
             var saved=g.Save();g.TranslateTransform(center.X,center.Y);g.RotateTransform((float)(-d.RelativeAngle.Value*180/Math.PI));
-            PointF[] arrow={new PointF(0,-34),new PointF(25,5),new PointF(9,1),new PointF(9,29),new PointF(-9,29),new PointF(-9,1),new PointF(-25,5)};
+            PointF[] arrow={new PointF(0,-23),new PointF(18,5),new PointF(6,1),new PointF(6,21),new PointF(-6,21),new PointF(-6,1),new PointF(-18,5)};
             using(var brush=new SolidBrush(Color.FromArgb(105,231,213)))g.FillPolygon(brush,arrow);g.Restore(saved);
         } else if(d!=null && d.AtPoint) {
-            using(var pen=new Pen(Color.FromArgb(105,231,213),5)) { g.DrawEllipse(pen,65,105,36,36);g.DrawLine(pen,83,96,83,104);g.DrawLine(pen,83,142,83,150);g.DrawLine(pen,56,123,64,123);g.DrawLine(pen,102,123,110,123); }
-        } else using(var muted=new SolidBrush(Color.FromArgb(166,182,205)))g.DrawString("?",numberFont,muted,69,100);
-        using(var white=new SolidBrush(Color.FromArgb(242,247,252))) {
-            string distance=d!=null && d.Distance.HasValue ? d.Distance.Value.ToString("F1")+" yd" : "—";
-            g.DrawString(distance,numberFont,white,149,80);
-            g.DrawString(d==null ? "Kein aktueller Fund" : d.Instruction,bodyFont,white,new RectangleF(151,123,235,45));
-        }
-        using(var muted=new SolidBrush(Color.FromArgb(166,182,205))) {
-            string elevation=d!=null && d.Height.HasValue && Math.Abs(d.Height.Value)>3 ? Math.Abs(d.Height.Value).ToString("F1")+" yd "+(d.Height.Value>0?"höher":"tiefer") : "Luftlinie · keine Wegführung";
-            g.DrawString(elevation,smallFont,muted,151,169);
-            using(var line=new Pen(Color.FromArgb(47,64,85)))g.DrawLine(line,23,197,377,197);
-            g.DrawString(preview?"VORSCHAU · synthetische Testdaten":"Loot: Kiste direkt am Fundort verschwunden",smallFont,muted,23,206);
-        }
+            using(var pen=new Pen(Color.FromArgb(105,231,213),3)) {
+                g.DrawEllipse(pen,36,55,24,24);
+            }
+        } else using(var muted=new SolidBrush(Color.FromArgb(166,182,205)))
+            using(var format=new StringFormat { Alignment=StringAlignment.Center,LineAlignment=StringAlignment.Center })
+                g.DrawString("—",numberFont,muted,new RectangleF(23,42,50,50),format);
+        string distance=d!=null && d.Distance.HasValue ? d.Distance.Value.ToString("F1")+" yd" : "—";
+        float distanceSize=Math.Min(28f,32f*174f/Math.Max(174f,g.MeasureString(distance,numberFont).Width));
+        using(var distanceFont=new Font("Segoe UI",distanceSize,FontStyle.Bold,GraphicsUnit.Pixel))
+        using(var white=new SolidBrush(Color.FromArgb(242,247,252)))
+        using(var format=new StringFormat { Alignment=StringAlignment.Near,LineAlignment=StringAlignment.Center,FormatFlags=StringFormatFlags.NoWrap })
+            g.DrawString(distance,distanceFont,white,new RectangleF(91,42,174,50),format);
         g.Restore(original);
     }
     public void SavePreview(CacheDirection data,string path) { using(var bitmap=new Bitmap(Width,Height))using(var g=Graphics.FromImage(bitmap)) { DrawCard(g,data,true);bitmap.Save(path); } }

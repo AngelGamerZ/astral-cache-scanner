@@ -42,6 +42,9 @@ public static class OverlayTests {
             Check(OverlayPlacement.FromPoint(new System.Drawing.Point(-50,900),new System.Drawing.Size(800,500),new System.Drawing.Size(400,200)).Resolve(new System.Drawing.Size(800,500),new System.Drawing.Size(400,200))==new System.Drawing.Point(0,300),"Clamped to game client");
             OverlayPlacement.Save(preferences,placement);Check(OverlayPlacement.Load(preferences).x==1,"Placement persistence");
             using(var overlay=new CacheOverlay(preferences)) {
+                float scale=(float)typeof(CacheOverlay).GetField("renderScale",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).GetValue(overlay);
+                Check(overlay.ClientSize.Width/scale<=280.01f && overlay.ClientSize.Height/scale<=100.01f,"Compact overlay must stay within 280 x 100 logical pixels at the current display scale");
+                Check((overlay.ClientSize.Width/scale)*(overlay.ClientSize.Height/scale)<=400*230*0.31f,"Compact overlay must use at most 31 percent of the previous screen area");
                 var diagnostics=new System.Collections.Generic.List<string>();overlay.Diagnostic+=message=>diagnostics.Add(message);
                 Check(overlay.InputTransparent,"Layered/click-through/noactivate/toolwindow flags");
                 var setInteractive=typeof(CacheOverlay).GetMethod("SetInteractive",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);
@@ -52,6 +55,13 @@ public static class OverlayTests {
                 overlay.SavePreview(Navigation.Select(sample),Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"overlay-preview.png"));
                 sample.objects[0].remembered=true;
                 overlay.SavePreview(Navigation.Select(sample),Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"overlay-saved-preview.png"));
+                var far=Sample(99999,99999,0);far.objects[0].z=99999;
+                Check(Navigation.Select(far).Distance>170000,"Far-distance preview exercises the longest valid distance text");
+                overlay.SavePreview(Navigation.Select(far),Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"overlay-far-preview.png"));
+                var verticalPreview=Sample(0,0,0);verticalPreview.objects[0].z=8;
+                overlay.SavePreview(Navigation.Select(verticalPreview),Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"overlay-vertical-preview.png"));
+                var unavailable=Sample(10,0,0);unavailable.onTransport=true;
+                overlay.SavePreview(Navigation.Select(unavailable),Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"overlay-unavailable-preview.png"));
                 var nearSaved=Sample(1,0,0);nearSaved.objects[0].remembered=true;
                 Check(Navigation.Select(nearSaved).Instruction=="Letzter Fundort erreicht","Remembered position is not confirmed presence");
                 var before=GetForegroundWindow();
@@ -64,7 +74,7 @@ public static class OverlayTests {
                 overlay.Clear();Check(!overlay.Visible,"Hidden after lost target");
                 Check(diagnostics.Last().Contains("keine aktuellen Scandaten"),"Missing scan logged");
             }
-            File.WriteAllText(report,"PASS: compass directions, rotation, wrapping, near/vertical targets, missing data, transport, nearest target, no demo/export, window input styles, foreground gating, focus preservation, clear/hide. Preview uses explicitly labelled synthetic data.\r\n");return 0;
+            File.WriteAllText(report,"PASS: compact bounds at current display scale, maximum 31 percent of previous area, compass directions, rotation, wrapping, near/vertical targets, missing data, transport, nearest target, no demo/export, window input styles, foreground gating, focus preservation, clear/hide. All five overlay-*-preview.png files use synthetic test data, not a live game capture.\r\n");return 0;
         } catch(Exception ex) {File.WriteAllText(report,ex.ToString());return 1;}
     }
 }
