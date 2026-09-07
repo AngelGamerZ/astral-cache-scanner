@@ -8,7 +8,7 @@ using System.Text;
 using System.Web.Script.Serialization;
 
 public static class ReleaseInfo {
-    public const string Version="1.3.0";
+    public const string Version="1.3.1";
     public const string Repository="AngelGamerZ/astral-cache-scanner";
     public const string ReleasesUrl="https://github.com/"+Repository+"/releases";
     public static string Check() {

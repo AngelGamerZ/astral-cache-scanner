@@ -2,9 +2,9 @@
 
 Astral Scanner ist eine portable Windows-App für Project Astral / WoW 3.3.5a. Sie erkennt geladene Objekte namens **Astral Cache**, merkt sich ihre Fundorte und zeigt mit einem Overlay Richtung und Entfernung zur nächsten offenen Kiste an. Der Scanner arbeitet lesend; er bewegt den Charakter nicht und führt keine Klicks oder Loot-Aktionen aus.
 
-**Aktuelle Version: 1.3.0** · Windows · .NET Framework 4.5 oder neuer · ZIP ohne Installation
+**Aktuelle Version: 1.3.1** · Windows · .NET Framework 4.5 oder neuer · ZIP ohne Installation
 
-[Windows-Version 1.3.0 herunterladen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/download/v1.3.0/AstralScanner-v1.3.0.zip) · [Neuestes Release & Änderungen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/latest) · [Online-Anleitung](https://angelgamerz.github.io/astral-cache-scanner/)
+[Windows-Version 1.3.1 herunterladen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/download/v1.3.1/AstralScanner-v1.3.1.zip) · [Neuestes Release & Änderungen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/latest) · [Online-Anleitung](https://angelgamerz.github.io/astral-cache-scanner/)
 
 ## Schnellstart
 
@@ -18,6 +18,8 @@ Astral Scanner ist eine portable Windows-App für Project Astral / WoW 3.3.5a. S
 Der Scanner kann minimiert weiterlaufen. **Stoppen** beendet den Scan und blendet das Overlay aus; gespeicherte Funde bleiben erhalten. Beim vollständigen Schließen endet auch das Overlay.
 
 ## Voraussetzungen und Erkennung
+
+Version 1.3.1 unterstützt zusätzlich die geprüfte Wow.exe des Client-Updates vom 7. September 2026 ohne WarcraftXL. Das bisherige Clientprofil bleibt unterstützt.
 
 - Windows mit .NET Framework 4.5 oder neuer und dem unterstützten Project-Astral-Client auf Basis von WoW 3.3.5a, Build 12340.
 - Der Scanner prüft die konkrete Wow.exe. Andere 3.3.5a-Clients sind dadurch nicht automatisch kompatibel. Nach einem Client-Update kann eine erneute Anpassung des Scanner-Profils nötig sein.
