@@ -179,6 +179,8 @@ public partial class ScannerForm : Form {
         using(var screen=Graphics.FromHwnd(IntPtr.Zero))uiScale=Math.Max(1,screen.DpiX/96f);
         if(scaleOverride.HasValue)uiScale=scaleOverride.Value;
         AutoScaleMode=AutoScaleMode.None;BuildUi();
+        using(var iconStream=typeof(ScannerForm).Assembly.GetManifestResourceStream("AstralScanner.ico"))
+            if(iconStream!=null)using(var appIcon=new Icon(iconStream))Icon=(Icon)appIcon.Clone();
         updateNotice=new UpdateNotice(uiScale);Controls.Add(updateNotice);updateNotice.BringToFront();updateNotice.Requested+=ConfirmUpdate;
         Action placeNotice=()=>{updateNotice.Width=Math.Min(Px(540),Math.Max(Px(280),ClientSize.Width-Px(32)));updateNotice.Left=(ClientSize.Width-updateNotice.Width)/2;};
         Resize+=(s,e)=>placeNotice();placeNotice();

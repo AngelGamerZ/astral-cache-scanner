@@ -2,9 +2,9 @@
 
 Astral Scanner ist eine portable Windows-App für Project Astral / WoW 3.3.5a. Sie erkennt geladene Objekte namens **Astral Cache**, merkt sich ihre Fundorte und zeigt mit einem Overlay Richtung und Entfernung zur nächsten offenen Kiste an. Der Scanner arbeitet lesend; er bewegt den Charakter nicht und führt keine Klicks oder Loot-Aktionen aus.
 
-**Aktuelle Version: 1.4.0** · Windows · .NET Framework 4.5 oder neuer · ZIP ohne Installation
+**Aktuelle Version: 1.4.1** · Windows · .NET Framework 4.5 oder neuer · ZIP ohne Installation
 
-[Windows-Version 1.4.0 herunterladen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/download/v1.4.0/AstralScanner-v1.4.0.zip) · [Neuestes Release & Änderungen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/latest) · [Online-Anleitung](https://angelgamerz.github.io/astral-cache-scanner/)
+[Windows-Version 1.4.1 herunterladen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/download/v1.4.1/AstralScanner-v1.4.1.zip) · [Neuestes Release & Änderungen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/latest) · [Online-Anleitung](https://angelgamerz.github.io/astral-cache-scanner/)
 
 ## Schnellstart
 
