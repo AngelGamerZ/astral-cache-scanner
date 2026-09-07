@@ -2,9 +2,9 @@
 
 Astral Scanner ist eine portable Windows-App für Project Astral / WoW 3.3.5a. Sie erkennt geladene Objekte namens **Astral Cache**, merkt sich ihre Fundorte und zeigt mit einem Overlay Richtung und Entfernung zur nächsten offenen Kiste an. Der Scanner arbeitet lesend; er bewegt den Charakter nicht und führt keine Klicks oder Loot-Aktionen aus.
 
-**Aktuelle Version: 1.4.1** · Windows · .NET Framework 4.5 oder neuer · ZIP ohne Installation
+**Aktuelle Version: 1.5.0** · Windows · .NET Framework 4.5 oder neuer · ZIP ohne Installation
 
-[Windows-Version 1.4.1 herunterladen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/download/v1.4.1/AstralScanner-v1.4.1.zip) · [Neuestes Release & Änderungen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/latest) · [Online-Anleitung](https://angelgamerz.github.io/astral-cache-scanner/)
+[Windows-Version 1.5.0 herunterladen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/download/v1.5.0/AstralScanner-v1.5.0.zip) · [Neuestes Release & Änderungen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/latest) · [Online-Anleitung](https://angelgamerz.github.io/astral-cache-scanner/)
 
 ## Schnellstart
 
@@ -44,7 +44,7 @@ Die App liest Clientdaten ohne Speicheränderungen, Injection oder Eingabeautoma
 
 Der Pfeil zeigt relativ zur **Blickrichtung des Charakters**, nicht zur frei gedrehten Kamera. Die Entfernung wird in **Yards** berechnet und berücksichtigt die Höhe, wenn sie verfügbar ist. Der Pfeil zeigt die direkte Richtung; Gelände, Hindernisse und Laufwege werden nicht berechnet. Bei mehreren passenden offenen Kisten wird das nächste Ziel gewählt.
 
-Das Overlay erscheint nur, wenn WoW im Vordergrund ist und gültige aktuelle Daten vorliegen. Bei Spielwechsel, Lesefehlern oder veralteten Daten wird es ausgeblendet. Auf Transportmitteln können Richtung und Entfernung pausieren, weil dort andere Koordinaten gelten. Die Position des Infofensters lässt sich in den Einstellungen ändern.
+Das Overlay erscheint nur, wenn WoW im Vordergrund ist und gültige aktuelle Daten vorliegen. Bei Spielwechsel, Lesefehlern oder veralteten Daten wird es ausgeblendet. Auf Transportmitteln können Richtung und Entfernung pausieren, weil dort andere Koordinaten gelten. Die Position des Infofensters lässt sich in den Einstellungen ändern. **Zum freien Verschieben Shift gedrückt halten und das Overlay mit der linken Maustaste ziehen.** Die Position wird gespeichert und an die Größe des Spielfensters angepasst. Ohne Verschieben bleibt das Overlay durchklickbar. Unter **Einstellungen → Overlayposition zurücksetzen** geht es zurück zur Standardposition.
 
 ## Kisten speichern und als gelootet erkennen
 
@@ -98,6 +98,7 @@ Alle persönlichen Daten liegen getrennt vom Programm im Windows-Benutzerordner 
 
 | Datei oder Ordner | Inhalt |
 | --- | --- |
+| **overlay-position.json** | Frei gewählte Overlayposition. |
 | **settings.json** | Bestätigter Spielordner. |
 | **finds.json** | Persönliche Kisten und ihr Erledigungszustand. |
 | **locations.json** | Historische Fundort-Datenbank. |
@@ -115,7 +116,7 @@ Beim Programmstart und über **Einstellungen → Auf Updates prüfen** wird das 
 3. Persönliche Daten werden gespeichert. Der Scanner schließt sich regulär, ein Helfer ersetzt die Programmdateien und startet die App neu.
 4. Den **Scan starten**-Knopf anschließend selbst drücken.
 
-Mit **×** kannst du den Hinweis schließen. Nach ungefähr zehn Sekunden fährt er auch von selbst nach oben aus dem Fenster. Das Update bleibt unter **Einstellungen → Update installieren** erreichbar. **Nein** in der Rückfrage lässt die bisherige Version weiterlaufen.
+Mit **×** kannst du den Hinweis schließen. Nach ungefähr zehn Sekunden fährt er auch von selbst nach oben aus dem Fenster. Das Update bleibt unter **Einstellungen → Update installieren** erreichbar. Diese Aktion kann auch ohne gespeichertes Angebot erneut nach einer neuen Version suchen; nur während einer laufenden Prüfung oder Installation ist sie gesperrt. **Nein** in der Rückfrage lässt die bisherige Version weiterlaufen.
 
 Die Dateien **AstralScanner.exe** und **README.md** werden direkt im vorhandenen Programmordner ersetzt. Ein ZIP-Unterordner **AstralScanner** wird aufgelöst; es entsteht kein zusätzlicher Unterordner. Persönliche Daten unter **%LOCALAPPDATA%\AstralScanner** bleiben erhalten. Alte Programmdateien werden unter **.astral-update-backup-…** gesichert; bei einem Fehler beim Austausch wird zurückgesetzt. Das Updateprotokoll liegt unter **Logs\updater.log** im persönlichen Datenordner.
 
@@ -151,3 +152,5 @@ Der Scanner ist ein Prototyp mit geprüftem Clientprofil. Oberflächen- und Logi
 [Alle Releases](https://github.com/AngelGamerZ/astral-cache-scanner/releases) · [Quellcode](https://github.com/AngelGamerZ/astral-cache-scanner) · [Fehler melden](https://github.com/AngelGamerZ/astral-cache-scanner/issues)
 
 Die Downloadseite und das Repository sind öffentlich. Die Seite bittet Suchmaschinen, sie nicht zu indexieren; ein direkt weitergegebener Link ist kein Zugriffsschutz.
+
+Ab Version 1.5.0 darf pro Windows-Benutzer und Sitzung nur eine reguläre Scannerinstanz laufen, damit persönliche Daten nicht gegenseitig überschrieben werden. [Auditbericht 1.5.0](docs/AUDIT-1.5.0.md)

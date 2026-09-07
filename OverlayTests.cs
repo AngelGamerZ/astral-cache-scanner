@@ -35,9 +35,19 @@ public static class OverlayTests {
         string report=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"overlay-test-results.txt");
         try {
             CheckDirections();Application.EnableVisualStyles();
-            using(var overlay=new CacheOverlay()) {
+            string preferences=Path.Combine(Path.GetTempPath(),"Astral-overlay-test-"+Guid.NewGuid().ToString("N"),"position.json");
+            var placement=OverlayPlacement.FromPoint(new System.Drawing.Point(600,300),new System.Drawing.Size(1000,700),new System.Drawing.Size(400,200));
+            Check(placement.x==1 && Math.Abs(placement.y-0.6)<1e-9,"Normalized placement");
+            Check(placement.Resolve(new System.Drawing.Size(800,500),new System.Drawing.Size(400,200))==new System.Drawing.Point(400,180),"Position follows resized client");
+            Check(OverlayPlacement.FromPoint(new System.Drawing.Point(-50,900),new System.Drawing.Size(800,500),new System.Drawing.Size(400,200)).Resolve(new System.Drawing.Size(800,500),new System.Drawing.Size(400,200))==new System.Drawing.Point(0,300),"Clamped to game client");
+            OverlayPlacement.Save(preferences,placement);Check(OverlayPlacement.Load(preferences).x==1,"Placement persistence");
+            using(var overlay=new CacheOverlay(preferences)) {
                 var diagnostics=new System.Collections.Generic.List<string>();overlay.Diagnostic+=message=>diagnostics.Add(message);
                 Check(overlay.InputTransparent,"Layered/click-through/noactivate/toolwindow flags");
+                var setInteractive=typeof(CacheOverlay).GetMethod("SetInteractive",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);
+                setInteractive.Invoke(overlay,new object[]{true});Check(!overlay.InputTransparent,"Shift drag accepts mouse input");
+                setInteractive.Invoke(overlay,new object[]{false});Check(overlay.InputTransparent,"Click-through restored after drag mode");
+                overlay.ResetPosition();Check(OverlayPlacement.Load(preferences)==null,"Reset clears custom placement");
                 var sample=Sample(24,-20,0);
                 overlay.SavePreview(Navigation.Select(sample),Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"overlay-preview.png"));
                 sample.objects[0].remembered=true;

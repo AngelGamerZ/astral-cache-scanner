@@ -69,10 +69,10 @@ public sealed class CacheMemory {
             else if((now-since).TotalSeconds>=2) {r.absentAfterLoot=true;dirty=true;}
         }
     }
-    public bool Mark(string key,bool looted,string reason,DateTimeOffset now) {
+    public bool Mark(string key,bool looted,string reason,DateTimeOffset now,bool disappearanceConfirmed=false) {
         SavedCache r;if(!records.TryGetValue(key,out r))return false;
         bool changed=r.looted!=looted;
-        r.looted=looted;r.completedAt=looted?now.ToString("o"):null;r.completionReason=looted?reason:null;r.absentAfterLoot=false;absentSince.Remove(key);dirty=true;ResetLoot();
+        r.looted=looted;r.completedAt=looted?now.ToString("o"):null;r.completionReason=looted?reason:null;r.absentAfterLoot=looted && disappearanceConfirmed;absentSince.Remove(key);dirty=true;ResetLoot();
         if(changed && CompletionChanged!=null)CompletionChanged(r);
         return true;
     }

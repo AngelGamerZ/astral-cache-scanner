@@ -106,28 +106,36 @@ public partial class ScannerForm : Form {
     bool updateBusy;
     string pendingRelease;
     UpdateNotice updateNotice;
-    Button installUpdate;
-    async void CheckUpdates() {
-        if(updateBusy)return;updateBusy=true;updateStatus.Text="GitHub wird geprüft …";
+    Button installUpdate,checkUpdate;
+    internal bool HasPendingUpdate {get{return pendingRelease!=null;}}
+    internal bool InstallUpdateEnabled {get{return installUpdate.Enabled;}}
+    void SetUpdateBusy(bool busy) {updateBusy=busy;if(!IsDisposed){installUpdate.Enabled=!busy;checkUpdate.Enabled=!busy;}}
+    internal void ApplyUpdateResult(string json) {
+        bool newer=ReleaseInfo.IsNewer(json);
+        string description=ReleaseInfo.Describe(json);
+        pendingRelease=newer?json:null;installUpdate.Enabled=!updateBusy;
+        updateStatus.Text=description;
+        if(newer)updateNotice.ShowNotice(ReleaseInfo.LatestVersion(json).ToString());else updateNotice.Dismiss();
+        Write(description);
+    }
+    async void CheckUpdates() {await CheckUpdatesCore();}
+    async System.Threading.Tasks.Task CheckUpdatesCore() {
+        if(updateBusy)return;SetUpdateBusy(true);updateStatus.Text="GitHub wird geprüft …";
         try {
             string json=await System.Threading.Tasks.Task.Run(()=>AutomaticUpdater.Metadata());
-            if(IsDisposed)return;
-            string description=ReleaseInfo.Describe(json);updateStatus.Text=description;Write(description);
-            if(description.StartsWith("Update verfügbar")) {
-                pendingRelease=json;installUpdate.Enabled=true;
-                var data=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(json);
-                updateNotice.ShowNotice(((string)data["tag_name"]).TrimStart('v'));
-            }else {pendingRelease=null;installUpdate.Enabled=false;}
-        }catch(Exception ex){if(!IsDisposed){updateStatus.Text="Update-Prüfung fehlgeschlagen";Write("Update: "+ex.Message);}}
-        finally{updateBusy=false;}
+            if(!IsDisposed)ApplyUpdateResult(json);
+        }catch(Exception ex){if(!IsDisposed){pendingRelease=null;updateStatus.Text="Update-Prüfung fehlgeschlagen – erneut prüfen oder Downloads öffnen.";Write("Update: "+ex.Message);}}
+        finally{SetUpdateBusy(false);}
     }
     async void ConfirmUpdate() {
-        if(updateBusy || pendingRelease==null)return;
+        if(updateBusy)return;
+        if(pendingRelease==null)await CheckUpdatesCore();
+        if(IsDisposed || pendingRelease==null || updateBusy)return;
         string approvedRelease=pendingRelease;
         var data=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(approvedRelease);
         updateNotice.Dismiss();
-        updateBusy=true;
-        if(MessageBox.Show(this,"Version "+data["tag_name"]+" jetzt herunterladen und installieren?\n\nDer Scanner wird gespeichert, geschlossen und danach neu gestartet.","Update installieren?",MessageBoxButtons.YesNo,MessageBoxIcon.Question,MessageBoxDefaultButton.Button2)!=DialogResult.Yes){updateBusy=false;return;}
+        SetUpdateBusy(true);
+        if(MessageBox.Show(this,"Version "+data["tag_name"]+" jetzt herunterladen und installieren?\n\nDer Scanner wird gespeichert, geschlossen und danach neu gestartet.","Update installieren?",MessageBoxButtons.YesNo,MessageBoxIcon.Question,MessageBoxDefaultButton.Button2)!=DialogResult.Yes){SetUpdateBusy(false);return;}
         try {
             var progress=new Progress<string>(message=>{if(!IsDisposed){updateStatus.Text=message;Write(message);}});
             var plan=await System.Threading.Tasks.Task.Run(()=>AutomaticUpdater.Prepare(approvedRelease,message=>((IProgress<string>)progress).Report(message)));
@@ -143,7 +151,7 @@ public partial class ScannerForm : Form {
             }catch{if(!IsDisposed){timer.Start();lootTimer.Start();}throw;}
         }
         catch(Exception ex){if(!IsDisposed){updateStatus.Text="Automatisches Update nicht möglich – bisherige Version bleibt verfügbar.";Write("Update: "+ex.Message);}}
-        finally {updateBusy=false;}
+        finally {SetUpdateBusy(false);}
     }
     void ExportDebug() {using(var d=new SaveFileDialog {Filter="Debug-Protokoll (*.txt)|*.txt",FileName="AstralScanner-Debug-"+DateTime.Now.ToString("yyyyMMdd-HHmmss")+".txt"})if(d.ShowDialog()==DialogResult.OK){debugJournal.Export(d.FileName);Write("Debug-Protokoll exportiert.");}}
     RewardTracker rewards=new RewardTracker();
@@ -160,7 +168,7 @@ public partial class ScannerForm : Form {
     TextBox log = new TextBox { Multiline = true, ReadOnly = true, Dock = DockStyle.Fill, ScrollBars = ScrollBars.Vertical };
     CheckBox sound = new CheckBox { Text = "Alarmton", Checked = true, AutoSize = true };
     Timer timer = new Timer { Interval = 200 };
-    CacheOverlay overlay=new CacheOverlay();
+    CacheOverlay overlay;
     CheckBox overlayEnabled=new CheckBox { Text="Ingame-Overlay",Checked=true,AutoSize=true };
     string previous = "", lastState = "";
     HashSet<string> known = new HashSet<string>();
@@ -176,6 +184,8 @@ public partial class ScannerForm : Form {
     Button startScan,selectJson;
     public ScannerForm(bool promptForPath=true,string customSettingsFile=null,float? scaleOverride=null) {
         settingsFile=customSettingsFile??ClientSettings.DefaultFile;
+        overlay=new CacheOverlay(customSettingsFile==null?null:Path.Combine(Path.GetDirectoryName(Path.GetFullPath(customSettingsFile)),"overlay-position.json"));
+        if(customSettingsFile!=null)logDir=Path.Combine(Path.GetDirectoryName(Path.GetFullPath(customSettingsFile)),"Logs");
         using(var screen=Graphics.FromHwnd(IntPtr.Zero))uiScale=Math.Max(1,screen.DpiX/96f);
         if(scaleOverride.HasValue)uiScale=scaleOverride.Value;
         AutoScaleMode=AutoScaleMode.None;BuildUi();
@@ -419,12 +429,17 @@ public static class Program {
             try { string directory=ClientSettings.Load(ClientSettings.DefaultFile);if(directory==null)throw new InvalidOperationException("Zuerst die App öffnen und den WoW-Ordner auswählen.");using(var reader=new LiveReader(directory)) { var s=reader.Scan(); File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"live-check.json"),new JavaScriptSerializer().Serialize(s)); } return 0; }
             catch(Exception ex) { File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"live-check.json"),new JavaScriptSerializer().Serialize(new {error=ex.Message}));return 1; }
         }
+        bool firstInstance;
+        string instanceName="Local\\AstralScanner-"+System.Security.Principal.WindowsIdentity.GetCurrent().User.Value;
+        using(var instance=new System.Threading.Mutex(true,instanceName,out firstInstance)) {
+        if(!firstInstance){MessageBox.Show("Astral Scanner läuft bereits. Bitte das vorhandene Fenster verwenden.","Astral Scanner",MessageBoxButtons.OK,MessageBoxIcon.Information);return 0;}
         Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
         using(var form = new ScannerForm(!args.Contains("--smoke-test"))) {
             if (args.Contains("--smoke-test")) { var t = new Timer { Interval=1500 }; t.Tick += (s,e) => { t.Stop();using(var bitmap = new Bitmap(form.Width, form.Height)) { form.DrawToBitmap(bitmap, new Rectangle(0,0,form.Width,form.Height)); bitmap.Save(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"app-preview.png")); } form.SaveDatabasePreview(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"database-preview.png"));form.Close(); }; t.Start(); Application.Run(form); t.Dispose(); }
             else Application.Run(form);
         }
         return 0;
+        }
     }
 }
 public static class Tests {

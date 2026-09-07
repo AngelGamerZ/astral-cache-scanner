@@ -8,7 +8,7 @@ using System.Text;
 using System.Web.Script.Serialization;
 
 public static class ReleaseInfo {
-    public const string Version="1.4.1";
+    public const string Version="1.5.0";
     public const string Repository="AngelGamerZ/astral-cache-scanner";
     public const string ReleasesUrl="https://github.com/"+Repository+"/releases";
     public static string Check() {
@@ -24,10 +24,15 @@ public static class ReleaseInfo {
             }
         }catch(WebException ex){var response=ex.Response as HttpWebResponse;if(response!=null && response.StatusCode==HttpStatusCode.NotFound)return "Kein sichtbares Release. Bei privatem Repository fehlt eventuell die Zugriffsberechtigung.";if(response!=null && (response.StatusCode==HttpStatusCode.Forbidden || response.StatusCode==HttpStatusCode.Unauthorized))return "GitHub-Zugriff abgelehnt oder Abfragelimit erreicht. Bitte später erneut prüfen.";return "Update-Prüfung nicht möglich: Netzwerk oder GitHub nicht erreichbar.";}
     }
-    public static string Describe(string json) {
+    public static Version LatestVersion(string json) {
         var data=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(json);object tag,draft,pre;
         if(data==null || !data.TryGetValue("tag_name",out tag) || !(tag is string) || (data.TryGetValue("draft",out draft)&&Object.Equals(draft,true)) || (data.TryGetValue("prerelease",out pre)&&Object.Equals(pre,true)))throw new InvalidDataException("Kein gültiges stabiles Release.");
         Version latest,current;if(!System.Version.TryParse(((string)tag).TrimStart('v'),out latest) || !System.Version.TryParse(Version,out current))throw new InvalidDataException("Unbekanntes Versionsformat.");
+        return latest;
+    }
+    public static bool IsNewer(string json) {return LatestVersion(json)>new System.Version(Version);}
+    public static string Describe(string json) {
+        var latest=LatestVersion(json);var current=new System.Version(Version);
         return latest>current?"Update verfügbar: "+latest+" · installiert: "+Version:latest==current?"Aktuell: Version "+Version:"Installiert: "+Version+" · GitHub-Release: "+latest;
     }
 }
@@ -66,7 +71,7 @@ public sealed class ProximityCompletion {
             if(!distance.HasValue || distance>10 || visible.Contains(r.Key))continue;
             eligible.Add(r.Key);DateTimeOffset since;
             if(!missing.TryGetValue(r.Key,out since))missing[r.Key]=now;
-            else if((now-since).TotalSeconds>=1) {memory.Mark(r.Key,true,"Am gespeicherten Fundort (max. 10 yd), Kiste seit 1 Sekunde in vollständigen Scans nicht vorhanden",now);completed.Add(r.Key);}
+            else if((now-since).TotalSeconds>=1) {memory.Mark(r.Key,true,"Am gespeicherten Fundort (max. 10 yd), Kiste seit 1 Sekunde in vollständigen Scans nicht vorhanden",now,true);completed.Add(r.Key);}
         }
         foreach(string key in missing.Keys.Where(k=>!eligible.Contains(k)||completed.Contains(k)).ToArray())missing.Remove(key);
         Status="Nächster offener Ort: "+(nearest.HasValue?nearest.Value.ToString("F1")+" yd":"keiner")+" · fehlend in Nähe: "+missing.Count+" · erledigt: "+completed.Count;

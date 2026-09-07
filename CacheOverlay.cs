@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
+using System.IO;
+using System.Web.Script.Serialization;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -51,6 +53,31 @@ public static class Navigation {
     }
 }
 
+public sealed class OverlayPlacement {
+    public int schema {get;set;}
+    public double x {get;set;}
+    public double y {get;set;}
+    static double Clamp(double value) {return Math.Max(0,Math.Min(1,value));}
+    public static OverlayPlacement FromPoint(Point point,Size client,Size card) {
+        return new OverlayPlacement {schema=1,x=client.Width>card.Width?Clamp((double)point.X/(client.Width-card.Width)):0,y=client.Height>card.Height?Clamp((double)point.Y/(client.Height-card.Height)):0};
+    }
+    public Point Resolve(Size client,Size card) {return new Point((int)Math.Round(Clamp(x)*Math.Max(0,client.Width-card.Width)),(int)Math.Round(Clamp(y)*Math.Max(0,client.Height-card.Height)));}
+    public static OverlayPlacement Load(string path) {
+        if(!File.Exists(path))return null;
+        if(new FileInfo(path).Length>4096)throw new InvalidDataException("Ungültige Overlayposition.");
+        var value=new JavaScriptSerializer().Deserialize<OverlayPlacement>(File.ReadAllText(path));
+        if(value==null)return null;
+        if(value.schema!=1 || Double.IsNaN(value.x)||Double.IsInfinity(value.x)||Double.IsNaN(value.y)||Double.IsInfinity(value.y)||value.x<0||value.x>1||value.y<0||value.y>1)throw new InvalidDataException("Ungültige Overlayposition.");
+        return value;
+    }
+    public static void Save(string path,OverlayPlacement value) {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)));
+        string temp=path+"."+Guid.NewGuid().ToString("N")+".tmp";
+        try {File.WriteAllText(temp,new JavaScriptSerializer().Serialize(value));if(File.Exists(path))File.Replace(temp,path,null);else File.Move(temp,path);}
+        finally {if(File.Exists(temp))File.Delete(temp);}
+    }
+}
+
 public sealed class CacheOverlay : Form {
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left,Top,Right,Bottom; }
     [StructLayout(LayoutKind.Sequential)] struct POINT { public int X,Y; }
@@ -61,6 +88,8 @@ public sealed class CacheOverlay : Form {
     [DllImport("user32.dll")] static extern bool IsIconic(IntPtr window);
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr window,IntPtr insertAfter,int x,int y,int cx,int cy,uint flags);
     [DllImport("user32.dll",EntryPoint="GetWindowLongW")] static extern int GetWindowLong(IntPtr window,int index);
+    [DllImport("user32.dll",EntryPoint="SetWindowLongW")] static extern int SetWindowLong(IntPtr window,int index,int value);
+    [DllImport("user32.dll")] static extern short GetAsyncKeyState(int key);
     const int Transparent=0x20,Layered=0x80000,ToolWindow=0x80,NoActivate=0x8000000;
     const int CardWidth=400,CardHeight=230;
     readonly Timer placementTimer=new Timer { Interval=100 };
@@ -80,8 +109,17 @@ public sealed class CacheOverlay : Form {
         diagnosticState=state;
         if(Diagnostic!=null)Diagnostic("Overlay: "+state);
     }
-    public string OverlayAnchor="Oben Mitte";
-    public CacheOverlay() {
+    string overlayAnchor="Oben Mitte";
+    readonly string placementFile;
+    OverlayPlacement placement;
+    bool dragging;
+    Point dragOffset;
+    Rectangle gameBounds;
+    public string OverlayAnchor { get {return overlayAnchor;} set { if(value==overlayAnchor)return;overlayAnchor=value;ResetPosition(); } }
+    public void ResetPosition() { placement=null;SavePlacement();PositionOverGame(); }
+    public CacheOverlay(string preferencesFile=null) {
+        placementFile=preferencesFile??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AstralScanner","overlay-position.json");
+        try {placement=OverlayPlacement.Load(placementFile);}catch {placement=null;}
         FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;TopMost=true;StartPosition=FormStartPosition.Manual;
         using(var screen=Graphics.FromHwnd(IntPtr.Zero))renderScale=Math.Max(1,screen.DpiX/96f);
         AutoScaleMode=AutoScaleMode.None;ClientSize=new Size((int)(CardWidth*renderScale),(int)(CardHeight*renderScale));BackColor=Color.FromArgb(17,22,33);Opacity=0.94;
@@ -93,6 +131,37 @@ public sealed class CacheOverlay : Form {
     protected override CreateParams CreateParams { get { var cp=base.CreateParams;cp.ExStyle|=Transparent|Layered|ToolWindow|NoActivate;return cp; } }
     public bool InputTransparent { get { int flags=GetWindowLong(Handle,-20);return (flags&(Transparent|Layered|ToolWindow|NoActivate))==(Transparent|Layered|ToolWindow|NoActivate); } }
     public CacheDirection CurrentDirection {get {return direction;}}
+    void SetInteractive(bool value) {
+        int flags=GetWindowLong(Handle,-20),updated=value?flags&~Transparent:flags|Transparent;
+        if(flags!=updated)SetWindowLong(Handle,-20,updated);
+        Cursor=value?Cursors.SizeAll:Cursors.Default;
+    }
+    void SavePlacement() {
+        try {OverlayPlacement.Save(placementFile,placement);}
+        catch(Exception ex) {if(Diagnostic!=null)Diagnostic("Overlayposition konnte nicht gespeichert werden: "+ex.Message);}
+    }
+    void EndDrag(bool save) {
+        if(!dragging)return;
+        dragging=false;Capture=false;if(save)SavePlacement();SetInteractive(false);
+    }
+    protected override void OnMouseDown(MouseEventArgs e) {
+        base.OnMouseDown(e);
+        if(e.Button!=MouseButtons.Left || (GetAsyncKeyState(0x10)&0x8000)==0)return;
+        dragging=true;dragOffset=e.Location;Capture=true;
+    }
+    protected override void OnMouseMove(MouseEventArgs e) {
+        base.OnMouseMove(e);if(!dragging)return;
+        var desired=new Point(MousePosition.X-dragOffset.X-gameBounds.Left,MousePosition.Y-dragOffset.Y-gameBounds.Top);
+        placement=OverlayPlacement.FromPoint(desired,gameBounds.Size,Size);
+        Point offset=placement.Resolve(gameBounds.Size,Size);Location=new Point(gameBounds.Left+offset.X,gameBounds.Top+offset.Y);
+    }
+    protected override void OnMouseUp(MouseEventArgs e) {base.OnMouseUp(e);if(e.Button==MouseButtons.Left)EndDrag(true);}
+    protected override void OnMouseCaptureChanged(EventArgs e) {base.OnMouseCaptureChanged(e);if(dragging&&!Capture)EndDrag(true);}
+    protected override void OnVisibleChanged(EventArgs e) {base.OnVisibleChanged(e);if(!Visible){EndDrag(true);if(IsHandleCreated)SetInteractive(false);}}
+    protected override void WndProc(ref Message m) {
+        if(m.Msg==0x21) {m.Result=new IntPtr(3);return;} // MA_NOACTIVATE: dragging never steals WoW focus.
+        base.WndProc(ref m);
+    }
     public void SetEnabled(bool value) { active=value;PositionOverGame(); }
     public void SetSnapshot(Snapshot snapshot,int pid) {
         direction=Navigation.Select(snapshot);gamePid=pid;age.Restart();Invalidate();PositionOverGame();
@@ -109,11 +178,15 @@ public sealed class CacheOverlay : Form {
         RECT rect;var origin=new POINT();
         if(!GetClientRect(foreground,out rect) || !ClientToScreen(foreground,ref origin) || rect.Right-rect.Left<Width || rect.Bottom-rect.Top<Height) { if(Visible)Hide();Report("ausgeblendet – Spielfenster nicht verfügbar oder zu klein; keine Loot-Bestätigung.");return; }
         int width=rect.Right-rect.Left,height=rect.Bottom-rect.Top;
+        gameBounds=new Rectangle(origin.X,origin.Y,width,height);
+        if(dragging && (GetAsyncKeyState(1)&0x8000)==0)EndDrag(true);
+        SetInteractive(dragging || (GetAsyncKeyState(0x10)&0x8000)!=0);
         int margin=(int)(20*renderScale);
         int x=OverlayAnchor=="Oben links"?margin:OverlayAnchor=="Oben rechts"?width-Width-margin:(width-Width)/2;
         int y=OverlayAnchor=="Unten Mitte"?height-Height-2*margin:3*margin;
         x=Math.Max(0,Math.Min(x,width-Width));y=Math.Max(0,Math.Min(y,height-Height));
-        Location=new Point(origin.X+x,origin.Y+y);
+        if(placement!=null) {Point offset=placement.Resolve(gameBounds.Size,Size);x=offset.X;y=offset.Y;}
+        if(!dragging)Location=new Point(origin.X+x,origin.Y+y);
         if(!Visible)Show();
         Report("sichtbar | Objekt "+direction.Target.id+" | "+(direction.Target.remembered?"gespeicherter Fund":"geladene Kiste")+" | "+(direction.AtPoint?"Zielpunkt erreicht: Zielmarkierung ersetzt Pfeil; noch keine Loot-Bestätigung.":direction.RelativeAngle.HasValue?"Richtungspfeil aktiv.":direction.Instruction));
         SetWindowPos(Handle,new IntPtr(-1),Left,Top,Width,Height,0x0010); // SWP_NOACTIVATE

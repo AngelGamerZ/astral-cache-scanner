@@ -38,7 +38,35 @@ public static class UiAcceptanceTests {
             using(var bitmap=new Bitmap(notice.Width,notice.Height)){notice.DrawToBitmap(bitmap,new Rectangle(0,0,notice.Width,notice.Height));bitmap.Save(Path.Combine(run,"update-notice-"+(int)(scale*100)+".png"));}
             notice.Advance(10349);Check(notice.Visible,"Notice remains for ten seconds");notice.Advance(10700);Check(!notice.Visible && requested==0,"Timeout dismisses without installing");
             notice.ShowNotice("9.9.9");notice.Advance(350);notice.Controls.OfType<Button>().Single(b=>b.Text=="×").PerformClick();notice.Advance(1000);Check(!notice.Visible && requested==0,"Close button dismisses without requesting update");
-            notice.ShowNotice("9.9.9");notice.Advance(350);notice.Controls.OfType<Button>().Single(b=>b.Text!="×").PerformClick();Check(requested==1,"Body click requests confirmation once");
+            using(var isolatedNotice=new UpdateNotice(scale)) {
+                form.Controls.Add(isolatedNotice);isolatedNotice.Width=notice.Width;
+                isolatedNotice.Requested+=()=>requested++;
+                isolatedNotice.ShowNotice("9.9.9");isolatedNotice.Advance(350);isolatedNotice.Controls.OfType<Button>().Single(b=>b.Text!="×").PerformClick();Check(requested==1,"Body click requests confirmation once");
+            }
+            form.Close();
+        }
+    }
+    static void UpdateOfferTest(string run) {
+        using(var form=new PreviewForm(Path.Combine(run,"update-offer","settings.json"),1f)) {
+            form.ShowInTaskbar=false;form.StartPosition=FormStartPosition.Manual;form.Location=new Point(-20000,-20000);form.Show();
+            Check(!form.HasPendingUpdate && form.InstallUpdateEnabled,"Idle install action can recheck without an existing offer");
+            form.ShowSection("overview");
+            form.ApplyUpdateResult("{\"tag_name\":\"v9.9.9\"}");
+            Check(form.HasPendingUpdate && form.InstallUpdateEnabled,"New release enables installation while settings are hidden");
+            var notice=Field<UpdateNotice>(form,"updateNotice");notice.Advance(10700);
+            form.ShowSection("settings");
+            Check(form.HasPendingUpdate && form.InstallUpdateEnabled,"Notice timeout keeps installation available in settings");
+            form.ApplyUpdateResult("{\"tag_name\":\"v9.9.9\"}");notice.Dismiss();notice.Advance(10700);
+            Check(form.HasPendingUpdate && form.InstallUpdateEnabled,"Dismissing notice keeps the pending offer");
+            form.ApplyUpdateResult("{\"tag_name\":\"v"+ReleaseInfo.Version+"\"}");
+            Check(!form.HasPendingUpdate && form.InstallUpdateEnabled,"Current release clears offer but leaves manual recheck available");
+            form.ApplyUpdateResult("{\"tag_name\":\"v9.9.9\"}");form.ApplyUpdateResult("{\"tag_name\":\"v1.0.0\"}");
+            Check(!form.HasPendingUpdate,"Older release clears offer and never enables downgrade");
+            Check(ReleaseInfo.IsNewer("{\"tag_name\":\"v9.9.9\"}") && !ReleaseInfo.IsNewer("{\"tag_name\":\"v1.0.0\"}"),"Structured version comparison");
+            foreach(string invalid in new[]{"{}","{\"tag_name\":\"unknown\"}","{\"tag_name\":\"v9.9.9\",\"draft\":true}","{\"tag_name\":\"v9.9.9\",\"prerelease\":true}"}) {
+                bool rejected=false;try{ReleaseInfo.IsNewer(invalid);}catch(InvalidDataException){rejected=true;}
+                Check(rejected,"Reject invalid or unstable release metadata");
+            }
             form.Close();
         }
     }
@@ -149,6 +177,7 @@ public static class UiAcceptanceTests {
         }
         foreach(float scale in new[]{1f,1.75f})try {Populated(run,scale);report.AppendLine("PASS populated "+(int)(scale*100)+"% — selection preservation, action gating, region/XYZ/date, database filter, debug pause/resume.");}catch(Exception ex){failures++;report.AppendLine("FAIL populated "+scale+": "+ex);}
         foreach(float scale in new[]{1f,1.75f})try{NoticeTest(run,scale);report.AppendLine("PASS update notice "+scale+": animation, ten-second timeout, X dismissal, request on click.");}catch(Exception ex){failures++;report.AppendLine("FAIL update notice: "+ex);}
+        try{UpdateOfferTest(run);report.AppendLine("PASS update offer: hidden settings, notice timeout/dismissal, current/older release, structured validation.");}catch(Exception ex){failures++;report.AppendLine("FAIL update offer: "+ex);}
         report.AppendLine("Failures: "+failures+". Screenshots require visual review for typography, contrast and empty states.");
         File.WriteAllText(reportPath,report.ToString(),Encoding.UTF8);
         File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"ui-test-results.txt"),report.ToString()+"\r\nArtifacts: "+run,Encoding.UTF8);

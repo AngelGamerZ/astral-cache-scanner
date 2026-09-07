@@ -81,7 +81,7 @@ public sealed class RewardTracker {
             if((now-pendingAt).TotalSeconds>5 || !nearby.ContainsKey(pending))pending=null;
             else if(!s.objects.Any(o=>CacheMemory.Key(s,o)==pending)) {
                 string key=pending;pending=null;nearby.Remove(key);
-                if(memory.Mark(key,true,"Token-Gutschrift +"+gain+" und Kiste in der Nähe verschwunden",now))return key;
+                if(memory.Mark(key,true,"Token-Gutschrift +"+gain+" und Kiste in der Nähe verschwunden",now,true))return key;
             }
         }
         return null;
