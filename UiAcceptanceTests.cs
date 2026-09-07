@@ -28,6 +28,20 @@ public static class UiAcceptanceTests {
     static T Field<T>(ScannerForm form,string name) {return (T)typeof(ScannerForm).GetField(name,BindingFlags.Instance|BindingFlags.NonPublic).GetValue(form);}
     static void Call(ScannerForm form,string name) {typeof(ScannerForm).GetMethod(name,BindingFlags.Instance|BindingFlags.NonPublic).Invoke(form,null);}
     static void Capture(ScannerForm form,string path) {Application.DoEvents();using(var image=new Bitmap(form.Width,form.Height)){form.DrawToBitmap(image,new Rectangle(0,0,form.Width,form.Height));image.Save(path);}}
+    static void NoticeTest(string run,float scale) {
+        using(var form=new PreviewForm(Path.Combine(run,"notice-"+scale,"settings.json"),scale)) {
+            form.ShowInTaskbar=false;form.StartPosition=FormStartPosition.Manual;form.Location=new Point(-20000,-20000);form.Show();
+            var notice=Field<UpdateNotice>(form,"updateNotice");int requested=0;notice.Requested+=()=>requested++;
+            notice.ShowNotice("9.9.9 (Vorschau)");Check(notice.Top==-notice.Height,"Notice starts outside top edge");
+            notice.Advance(175);Check(notice.Top<12*scale && notice.Top>-notice.Height,"Notice animates into window");
+            notice.Advance(350);Check(notice.Top>=0 && notice.Visible,"Notice is visible after entrance");
+            using(var bitmap=new Bitmap(notice.Width,notice.Height)){notice.DrawToBitmap(bitmap,new Rectangle(0,0,notice.Width,notice.Height));bitmap.Save(Path.Combine(run,"update-notice-"+(int)(scale*100)+".png"));}
+            notice.Advance(10349);Check(notice.Visible,"Notice remains for ten seconds");notice.Advance(10700);Check(!notice.Visible && requested==0,"Timeout dismisses without installing");
+            notice.ShowNotice("9.9.9");notice.Advance(350);notice.Controls.OfType<Button>().Single(b=>b.Text=="×").PerformClick();notice.Advance(1000);Check(!notice.Visible && requested==0,"Close button dismisses without requesting update");
+            notice.ShowNotice("9.9.9");notice.Advance(350);notice.Controls.OfType<Button>().Single(b=>b.Text!="×").PerformClick();Check(requested==1,"Body click requests confirmation once");
+            form.Close();
+        }
+    }
     static void Populated(string run,float scale) {
         string directory=Path.Combine(run,"populated-"+(int)(scale*100));Directory.CreateDirectory(directory);
         using(var form=new PreviewForm(Path.Combine(directory,"settings.json"),scale)) {
@@ -134,6 +148,7 @@ public static class UiAcceptanceTests {
             }catch(Exception ex){failures++;report.AppendLine("FAIL "+prefix+": "+ex);}
         }
         foreach(float scale in new[]{1f,1.75f})try {Populated(run,scale);report.AppendLine("PASS populated "+(int)(scale*100)+"% — selection preservation, action gating, region/XYZ/date, database filter, debug pause/resume.");}catch(Exception ex){failures++;report.AppendLine("FAIL populated "+scale+": "+ex);}
+        foreach(float scale in new[]{1f,1.75f})try{NoticeTest(run,scale);report.AppendLine("PASS update notice "+scale+": animation, ten-second timeout, X dismissal, request on click.");}catch(Exception ex){failures++;report.AppendLine("FAIL update notice: "+ex);}
         report.AppendLine("Failures: "+failures+". Screenshots require visual review for typography, contrast and empty states.");
         File.WriteAllText(reportPath,report.ToString(),Encoding.UTF8);
         File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"ui-test-results.txt"),report.ToString()+"\r\nArtifacts: "+run,Encoding.UTF8);

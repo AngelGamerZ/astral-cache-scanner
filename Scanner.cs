@@ -104,11 +104,33 @@ public partial class ScannerForm : Form {
     TextBox debugText=new TextBox {Multiline=true,ReadOnly=true,Dock=DockStyle.Fill,ScrollBars=ScrollBars.Both,WordWrap=false};
     Label updateStatus=new Label {Text="Installiert: "+ReleaseInfo.Version,AutoSize=true};
     bool updateBusy;
+    string pendingRelease;
+    UpdateNotice updateNotice;
+    Button installUpdate;
     async void CheckUpdates() {
         if(updateBusy)return;updateBusy=true;updateStatus.Text="GitHub wird geprüft …";
         try {
+            string json=await System.Threading.Tasks.Task.Run(()=>AutomaticUpdater.Metadata());
+            if(IsDisposed)return;
+            string description=ReleaseInfo.Describe(json);updateStatus.Text=description;Write(description);
+            if(description.StartsWith("Update verfügbar")) {
+                pendingRelease=json;installUpdate.Enabled=true;
+                var data=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(json);
+                updateNotice.ShowNotice(((string)data["tag_name"]).TrimStart('v'));
+            }else {pendingRelease=null;installUpdate.Enabled=false;}
+        }catch(Exception ex){if(!IsDisposed){updateStatus.Text="Update-Prüfung fehlgeschlagen";Write("Update: "+ex.Message);}}
+        finally{updateBusy=false;}
+    }
+    async void ConfirmUpdate() {
+        if(updateBusy || pendingRelease==null)return;
+        string approvedRelease=pendingRelease;
+        var data=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(approvedRelease);
+        updateNotice.Dismiss();
+        updateBusy=true;
+        if(MessageBox.Show(this,"Version "+data["tag_name"]+" jetzt herunterladen und installieren?\n\nDer Scanner wird gespeichert, geschlossen und danach neu gestartet.","Update installieren?",MessageBoxButtons.YesNo,MessageBoxIcon.Question,MessageBoxDefaultButton.Button2)!=DialogResult.Yes){updateBusy=false;return;}
+        try {
             var progress=new Progress<string>(message=>{if(!IsDisposed){updateStatus.Text=message;Write(message);}});
-            var plan=await System.Threading.Tasks.Task.Run(()=>AutomaticUpdater.Prepare(message=>((IProgress<string>)progress).Report(message)));
+            var plan=await System.Threading.Tasks.Task.Run(()=>AutomaticUpdater.Prepare(approvedRelease,message=>((IProgress<string>)progress).Report(message)));
             if(IsDisposed || plan==null)return;
             updateStatus.Text="Update geprüft. Scanner wird gespeichert und neu gestartet …";Write(updateStatus.Text);
             timer.Stop();lootTimer.Stop();
@@ -157,6 +179,10 @@ public partial class ScannerForm : Form {
         using(var screen=Graphics.FromHwnd(IntPtr.Zero))uiScale=Math.Max(1,screen.DpiX/96f);
         if(scaleOverride.HasValue)uiScale=scaleOverride.Value;
         AutoScaleMode=AutoScaleMode.None;BuildUi();
+        updateNotice=new UpdateNotice(uiScale);Controls.Add(updateNotice);updateNotice.BringToFront();updateNotice.Requested+=ConfirmUpdate;
+        Action placeNotice=()=>{updateNotice.Width=Math.Min(Px(540),Math.Max(Px(280),ClientSize.Width-Px(32)));updateNotice.Left=(ClientSize.Width-updateNotice.Width)/2;};
+        Resize+=(s,e)=>placeNotice();placeNotice();
+
         if(!scaleOverride.HasValue){var area=Screen.PrimaryScreen.WorkingArea;MinimumSize=new Size(Math.Min(Px(1000),area.Width-40),Math.Min(Px(700),area.Height-40));Size=new Size(Math.Min(Width,area.Width-40),Math.Min(Height,area.Height-40));}
         try {cacheMemory=new CacheMemory(customSettingsFile==null?CacheMemory.DefaultFile:Path.Combine(Path.GetDirectoryName(Path.GetFullPath(customSettingsFile)),"finds.json"));cacheMemory.CompletionChanged += r => Write(DebugJournal.CompletionMessage(r));RenderSaved();}catch(Exception ex){memoryStatus.Text="Funddatei nicht lesbar: "+ex.Message;Write(memoryStatus.Text);}
         try {locationDatabase=new LocationDatabase(customSettingsFile==null?LocationDatabase.DefaultFile:Path.Combine(Path.GetDirectoryName(Path.GetFullPath(customSettingsFile)),"locations.json"));SyncLocations(true);}catch(Exception ex){databaseStatus.Text="Datenbank nicht verfügbar: "+ex.Message;Write(databaseStatus.Text);}

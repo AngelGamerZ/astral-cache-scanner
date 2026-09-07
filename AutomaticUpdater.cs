@@ -34,7 +34,7 @@ public static class AutomaticUpdater {
         ServicePointManager.SecurityProtocol|=(SecurityProtocolType)3072;
         var r=(HttpWebRequest)WebRequest.Create(url);r.UserAgent="AstralScanner/"+ReleaseInfo.Version;r.Timeout=30000;r.ReadWriteTimeout=30000;return r;
     }
-    static string Metadata() {
+    public static string Metadata() {
         var request=Request("https://api.github.com/repos/"+ReleaseInfo.Repository+"/releases/latest");request.Accept="application/vnd.github+json";
         using(var response=request.GetResponse())using(var reader=new StreamReader(response.GetResponseStream())) {
             var buffer=new char[262145];int count=0,n;
@@ -43,7 +43,10 @@ public static class AutomaticUpdater {
         }
     }
     public static UpdatePlan Prepare(Action<string> progress) {
-        string json=Metadata();progress(ReleaseInfo.Describe(json));
+        return Prepare(Metadata(),progress);
+    }
+    public static UpdatePlan Prepare(string json,Action<string> progress) {
+        progress(ReleaseInfo.Describe(json));
         var data=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(json);
         string tag=(string)data["tag_name"];var version=new Version(tag.TrimStart('v'));
         if(version<=new Version(ReleaseInfo.Version))return null;
