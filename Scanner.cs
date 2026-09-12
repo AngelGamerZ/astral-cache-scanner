@@ -344,6 +344,7 @@ public partial class ScannerForm : Form {
         var version = FileVersionInfo.GetVersionInfo(exe).FileVersion;
         string hash; using(var f = File.OpenRead(exe)) using(var sha = SHA256.Create()) hash = BitConverter.ToString(sha.ComputeHash(f)).Replace("-", "");
         Write("Clientprüfung: " + exe + "; Version " + version + "; SHA256 " + hash);
+        try {Write("Kompatibilität: "+ClientCompatibility.ValidateFile(exe));}catch(Exception ex){Write("Kompatibilität: "+ex.Message);}
         string addon = Path.Combine(client.Text, "Interface", "AddOns", "ProjectAstral");
         Write("ProjectAstral-Addon: " + (Directory.Exists(addon) ? "vorhanden" : "nicht gefunden") + ". Live-Reader prüft das konkrete Clientprofil separat.");
     }
@@ -352,7 +353,7 @@ public partial class ScannerForm : Form {
         Disconnect();
         if(!clientApproved) {RequireClient();return;}
         try {LiveReader.ValidateDirectory(client.Text);}catch(Exception ex) {Write(ex.Message);client.Clear();RequireClient();return;}
-        try { liveReader=new LiveReader(client.Text); source.Text="LIVE: Wow.exe · PID " + liveReader.Pid + " · PROCESS_VM_READ"; Write("Live verbunden. Nur Leserechte; Client-Prüfsumme und Getter-Struktur bestätigt. Betreiberfreigabe nicht geprüft."); }
+        try { liveReader=new LiveReader(client.Text); source.Text="LIVE: Wow.exe · PID " + liveReader.Pid + " · PROCESS_VM_READ"; Write("Live verbunden. Nur Leserechte; "+liveReader.Compatibility+"; Getter-Struktur bestätigt. Betreiberfreigabe nicht geprüft."); }
         catch(Exception ex) { SetState("Live-Verbindung fehlgeschlagen",ex.Message,Color.Firebrick); }
     }
     void SelectSource() { if(!clientApproved) {RequireClient();return;}using (var d = new OpenFileDialog { Filter = "Objekt-Snapshot (*.json)|*.json", CheckFileExists = true }) if (d.ShowDialog() == DialogResult.OK) { Disconnect(); source.Text = d.FileName; Poll(); } }

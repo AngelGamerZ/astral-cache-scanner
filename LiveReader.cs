@@ -9,7 +9,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 // External reads only. No client functions are invoked, no privileges enabled.
-// This profile is limited to the inspected executable and verified getter bytes.
+// Inspected executables / narrowly normalized profiles plus live getter checks.
 public sealed class LiveReader : IDisposable {
     WalletMemoryReader wallet;
     public WalletObservation ReadWallet() {
@@ -21,9 +21,11 @@ public sealed class LiveReader : IDisposable {
     [DllImport("kernel32.dll", SetLastError=true)] static extern bool ReadProcessMemory(IntPtr handle, IntPtr address, byte[] buffer, UIntPtr size, out UIntPtr read);
     [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
     const string ExpectedHash = "02F38EE484B9B6EF055BBA0C749738DC0905EB8BCF4B310349BB0C6B4FD4D865";
-    // Both concrete executables passed the same on-disk and live getter checks.
+    // Concrete executables passed the same on-disk and live getter checks.
     const string UpdatedHash = "EDDFF880343A477FAA1480626571C1385442EFFF5E9AA706BC57341F17DCB96F";
-    public static bool SupportedHash(string hash) {return hash==ExpectedHash || hash==UpdatedHash;}
+    const string September12Hash = "CC685C8EA7B84300A99B8BE0FAE84CB82287A85C14C6A84F4CA04042EC629B65";
+    public static bool SupportedHash(string hash) {return hash==ExpectedHash || hash==UpdatedHash || hash==September12Hash;}
+    public string Compatibility {get;private set;}
     IntPtr handle;
     readonly int pid;
     public int Pid { get { return pid; } }
@@ -31,7 +33,7 @@ public sealed class LiveReader : IDisposable {
         if(String.IsNullOrWhiteSpace(directory) || !Path.IsPathRooted(directory) || Path.GetPathRoot(directory).Length<3) throw new InvalidDataException("Bitte einen vollständigen WoW-Ordner auswählen.");
         string full=Path.GetFullPath(directory),exe=Path.Combine(full,"Wow.exe");
         if(!Directory.Exists(full) || !File.Exists(exe))throw new InvalidDataException("In diesem Ordner wurde keine Wow.exe gefunden. Bitte den Spielordner auswählen.");
-        using(var f=File.OpenRead(exe))using(var sha=SHA256.Create())if(!SupportedHash(BitConverter.ToString(sha.ComputeHash(f)).Replace("-", "")))throw new InvalidDataException("Diese Wow.exe passt nicht zum geprüften Astral-Client. Bitte den richtigen Ordner wählen; nach einem Clientupdate muss das Profil geprüft werden.");
+        ClientCompatibility.ValidateFile(exe);
         return full;
     }
     public LiveReader(string directory) {
@@ -43,7 +45,7 @@ public sealed class LiveReader : IDisposable {
             string path=p.MainModule.FileName;
             if(!String.Equals(Path.GetFullPath(path), Path.GetFullPath(Path.Combine(directory,"Wow.exe")), StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Der laufende Client gehört nicht zum gewählten Ordner.");
             if(p.MainModule.BaseAddress.ToInt64()!=0x400000) throw new InvalidOperationException("Nicht unterstützte Ladeadresse des Clients.");
-            using(var f=File.OpenRead(path)) using(var sha=SHA256.Create()) if(!SupportedHash(BitConverter.ToString(sha.ComputeHash(f)).Replace("-", ""))) throw new InvalidOperationException("Clientdatei verändert: Dieses Profil muss erneut geprüft werden.");
+            Compatibility=ClientCompatibility.ValidateFile(path);
             pid=p.Id;
             handle=OpenProcess(0x0010,false,pid); // PROCESS_VM_READ, nothing else
             if(handle==IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error(),"Lesender Zugriff verweigert. Keine Umgehung versucht.");

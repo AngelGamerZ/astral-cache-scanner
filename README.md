@@ -2,9 +2,9 @@
 
 Astral Scanner ist eine portable Windows-App für Project Astral / WoW 3.3.5a. Sie erkennt geladene Objekte namens **Astral Cache**, merkt sich ihre Fundorte und zeigt mit einem Overlay Richtung und Entfernung zur nächsten offenen Kiste an. Der Scanner arbeitet lesend; er bewegt den Charakter nicht und führt keine Klicks oder Loot-Aktionen aus.
 
-**Aktuelle Version: 1.5.2** · Windows · .NET Framework 4.5 oder neuer · ZIP ohne Installation
+**Aktuelle Version: 1.5.3** · Windows · .NET Framework 4.5 oder neuer · ZIP ohne Installation
 
-[Windows-Version 1.5.2 herunterladen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/download/v1.5.2/AstralScanner-v1.5.2.zip) · [Neuestes Release & Änderungen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/latest) · [Online-Anleitung](https://angelgamerz.github.io/astral-cache-scanner/)
+[Windows-Version 1.5.3 herunterladen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/download/v1.5.3/AstralScanner-v1.5.3.zip) · [Neuestes Release & Änderungen](https://github.com/AngelGamerZ/astral-cache-scanner/releases/latest) · [Online-Anleitung](https://angelgamerz.github.io/astral-cache-scanner/)
 
 ## Schnellstart
 
@@ -19,10 +19,11 @@ Der Scanner kann minimiert weiterlaufen. **Stoppen** beendet den Scan und blende
 
 ## Voraussetzungen und Erkennung
 
-Version 1.4.0 unterstützt zusätzlich die geprüfte Wow.exe des Client-Updates vom 7. September 2026 ohne WarcraftXL. Das bisherige Clientprofil bleibt unterstützt.
+Version 1.5.3 unterstützt die geprüfte Wow.exe des Client-Updates vom 12. September 2026. Die beiden zuvor geprüften Clientdateien bleiben unterstützt.
 
 - Windows mit .NET Framework 4.5 oder neuer und dem unterstützten Project-Astral-Client auf Basis von WoW 3.3.5a, Build 12340.
-- Der Scanner prüft die konkrete Wow.exe. Andere 3.3.5a-Clients sind dadurch nicht automatisch kompatibel. Nach einem Client-Update kann eine erneute Anpassung des Scanner-Profils nötig sein.
+- Der Scanner akzeptiert bekannte Clientdateien. Für das Profil vom 12. September erkennt er außerdem Änderungen ausschließlich am PE-Buildzeitstempel, an der PE-Prüfsumme oder am Inhalt des schreibgeschützten Ressourcenbereichs automatisch, solange Dateigröße, Layout und alle übrigen Dateibytes unverändert bleiben.
+- Änderungen an Programmcode, Daten, Speicherlayout oder anderen Dateibereichen verlangen weiterhin ein geprüftes Scanner-Profil. Andere 3.3.5a-Clients sind nicht automatisch kompatibel. Die Lesefunktionen und gelesenen Objekte werden zusätzlich im laufenden Spiel geprüft. Die Diagnose nennt, ob die Datei bekannt ist oder über das kompatible Profil akzeptiert wurde.
 - Das Overlay benötigt den Fenstermodus oder maximierten Fenstermodus. Exklusives Vollbild wird nicht unterstützt.
 - Erkannte Kisten müssen vom Spielclient geladen sein. Der Scanner durchsucht nicht die gesamte Welt nach noch unbekannten Spawns.
 
